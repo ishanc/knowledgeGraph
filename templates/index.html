@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document Processor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-container {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .upload-container.dragover {
+            background-color: #e1f5fe;
+            border-color: #2196f3;
+        }
+        #fileList {
+            margin: 20px 0;
+        }
+        .file-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f5f5f5;
+            border-radius: 3px;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .result-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid;
+        }
+        .success { border-color: #4caf50; }
+        .error { border-color: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>Document Processor</h1>
+    <div class="upload-container" id="dropZone">
+        <p>Drag and drop files here or</p>
+        <input type="file" id="fileInput" multiple style="display: none">
+        <button onclick="document.getElementById('fileInput').click()">Select Files</button>
+    </div>
+    <div id="fileList"></div>
+    <button id="uploadButton" style="display: none">Process Files</button>
+    <div id="results" class="results"></div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const uploadButton = document.getElementById('uploadButton');
+        const results = document.getElementById('results');
+        let files = [];
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(fileList) {
+            files = Array.from(fileList);
+            updateFileList();
+            uploadButton.style.display = 'block';
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = files.map(file => 
+                `<div class="file-item">${file.name} (${formatSize(file.size)})</div>`
+            ).join('');
+        }
+
+        function formatSize(bytes) {
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            if (bytes === 0) return '0 Bytes';
+            const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return Math.round(100 * bytes / Math.pow(1024, i)) / 100 + ' ' + sizes[i];
+        }
+
+        uploadButton.addEventListener('click', async () => {
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files[]', file);
+            });
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                console.error('Upload failed:', error);
+            }
+        });
+
+        function displayResults(results) {
+            const resultsHTML = results.map(result => {
+                const status = result.status.includes('Successfully') ? 'success' : 'error';
+                return `
+                    <div class="result-item ${status}">
+                        <strong>${result.filename}</strong>: ${result.status}
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('results').innerHTML = resultsHTML;
+        }
+    </script>
+</body>
+</html>
