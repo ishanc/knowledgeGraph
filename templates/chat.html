@@ -3,44 +3,155 @@
 <head>
     <title>Knowledge Graph Chat Interface</title>
     <style>
+        :root {
+            --pastel-blue: #a8d8ea;
+            --pastel-pink: #f3d1dc;
+            --pastel-green: #c5e3d5;
+            --text-color: #444;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--pastel-blue) 0%, var(--pastel-pink) 100%);
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+
         .chat-container {
             max-width: 800px;
             margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             padding: 20px;
         }
+
         .messages {
-            height: 400px;
+            height: 60vh;
             overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
+            border: none;
+            border-radius: 10px;
+            padding: 20px;
             margin-bottom: 20px;
+            background: rgba(255, 255, 255, 0.8);
         }
+
         .message {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 5px;
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            animation: fadeIn 0.3s ease;
+            line-height: 1.5;
         }
+
         .user-message {
-            background-color: #e3f2fd;
+            background: var(--pastel-blue);
             margin-left: 20%;
         }
+
         .assistant-message {
-            background-color: #f5f5f5;
+            background: var(--pastel-pink);
             margin-right: 20%;
         }
+
         .input-container {
             display: flex;
             gap: 10px;
         }
+
         #messageInput {
             flex-grow: 1;
-            padding: 10px;
+            padding: 15px;
+            border: 2px solid var(--pastel-blue);
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        #messageInput:focus {
+            outline: none;
+            border-color: var(--pastel-green);
+            box-shadow: 0 0 5px rgba(168, 216, 234, 0.5);
+        }
+
+        button {
+            padding: 15px 30px;
+            background: var(--pastel-blue);
+            border: none;
+            border-radius: 10px;
+            color: var(--text-color);
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: var(--pastel-green);
+            transform: translateY(-2px);
+        }
+
+        /* Loader Animation */
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .shimmer {
+            background: linear-gradient(
+                90deg,
+                var(--pastel-blue) 0%,
+                var(--pastel-pink) 50%,
+                var(--pastel-blue) 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+            border-radius: 10px;
+            height: 40px;
+            width: 200px;
+            margin: 0 auto;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Add typing animation styles */
+        .typing {
+            display: inline-block;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .typing-cursor {
+            display: inline-block;
+            width: 3px;
+            height: 18px;
+            background: var(--text-color);
+            margin-left: 2px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
         }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="messages" id="messages"></div>
+        <div class="loader">
+            <div class="shimmer"></div>
+        </div>
         <div class="input-container">
             <input type="text" id="messageInput" placeholder="Type your message...">
             <button onclick="sendMessage()">Send</button>
@@ -49,6 +160,76 @@
 
     <script>
         let sessionId = null;
+        const TYPING_SPEED = 20; // milliseconds per character
+
+        // Format message content with markdown-like syntax
+        function formatContent(content) {
+            return content
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>')
+                .replace(/• (.*?)(?=(\n|$))/g, '<li>$1</li>');
+        }
+
+        async function typeMessage(element, text) {
+            const formattedHtml = formatContent(text);
+            let visibleLength = 0;
+            element.innerHTML = '<span class="typing"></span><span class="typing-cursor"></span>';
+            const typingSpan = element.querySelector('.typing');
+            
+            // Create temporary elements to handle HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = formattedHtml;
+            const textNodes = [];
+            const htmlMap = new Map();
+            
+            // Collect text nodes and their HTML contexts
+            function processNode(node, inHtml = '') {
+                if (node.nodeType === 3) { // Text node
+                    textNodes.push(node.textContent);
+                    htmlMap.set(textNodes.length - 1, inHtml);
+                } else {
+                    const tag = node.tagName?.toLowerCase();
+                    const htmlStart = tag ? inHtml + `<${tag}>` : inHtml;
+                    const htmlEnd = tag ? `</${tag}>` : '';
+                    for (const child of node.childNodes) {
+                        processNode(child, htmlStart);
+                    }
+                }
+            }
+            
+            processNode(tempDiv);
+            const fullText = textNodes.join('');
+            
+            return new Promise(resolve => {
+                function typeNextChar() {
+                    if (visibleLength < fullText.length) {
+                        visibleLength++;
+                        let currentPos = 0;
+                        let currentHtml = '';
+                        
+                        // Rebuild HTML with current visible length
+                        for (let i = 0; i < textNodes.length; i++) {
+                            const nodeText = textNodes[i];
+                            const nodeHtml = htmlMap.get(i);
+                            const visibleText = nodeText.substring(0, Math.max(0, visibleLength - currentPos));
+                            
+                            if (visibleText) {
+                                currentHtml += nodeHtml + visibleText;
+                            }
+                            currentPos += nodeText.length;
+                        }
+                        
+                        typingSpan.innerHTML = currentHtml;
+                        setTimeout(typeNextChar, TYPING_SPEED);
+                    } else {
+                        element.innerHTML = formattedHtml;
+                        resolve();
+                    }
+                }
+                typeNextChar();
+            });
+        }
 
         // Create a new session when page loads
         async function initSession() {
@@ -66,29 +247,54 @@
             addMessage('user', message);
             input.value = '';
 
-            // Send message to server
-            const response = await fetch('/chat/message', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ session_id: sessionId, message })
-            });
+            // Show loader
+            document.querySelector('.loader').style.display = 'block';
 
-            const data = await response.json();
-            if (data.error) {
-                addMessage('assistant', 'Error: ' + data.error);
-            } else {
-                addMessage('assistant', data.response);
+            try {
+                // Send message to server
+                const response = await fetch('/chat/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ session_id: sessionId, message })
+                });
+
+                const data = await response.json();
+                if (data.error) {
+                    addMessage('assistant', 'Error: ' + data.error);
+                } else {
+                    addMessage('assistant', data.response);
+                }
+            } catch (error) {
+                addMessage('assistant', 'Error: ' + error.message);
+            } finally {
+                // Hide loader
+                document.querySelector('.loader').style.display = 'none';
             }
         }
 
-        function addMessage(role, content) {
+        // Modify addMessage to use typing effect for assistant messages
+        async function addMessage(role, content) {
             const messages = document.getElementById('messages');
             const div = document.createElement('div');
             div.className = `message ${role}-message`;
-            div.textContent = content;
             messages.appendChild(div);
+            
+            if (role === 'assistant') {
+                await typeMessage(div, content);
+            } else {
+                div.innerHTML = formatContent(content);
+            }
+            
             messages.scrollTop = messages.scrollHeight;
         }
+
+        // Add enter key support
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
 
         // Initialize chat session
         initSession();
