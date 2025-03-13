@@ -3,12 +3,12 @@ from werkzeug.utils import secure_filename
 import os
 from dotenv import load_dotenv
 from knowledgeGraph import process_file
-import glob
 import json
 from datetime import datetime
 import logging
 from json_validator import validate_json_file, fix_json_content
 from knowledge_graph_builder import KnowledgeGraphBuilder
+from chat import ChatManager  # Updated import
 
 # Load environment variables
 load_dotenv()
@@ -55,18 +55,19 @@ kg_builder = KnowledgeGraphBuilder(
     output_dir=GRAPH_OUTPUT_DIR
 )
 
+# Initialize chat manager with knowledge graph
+chat_manager = ChatManager(kg_builder)
+
 @app.route('/')
 def index():
     try:
         return render_template('index.html')
     except Exception as e:
-        app.logger.error(f"Error rendering template: {str(e)}")
-        return f"""
-        Error loading template. Please ensure:
+        logger.error(f"Error rendering template: {str(e)}")
+        return f"""Error loading template. Please ensure:
         1. The templates directory exists at {TEMPLATE_DIR}
         2. index.html is present in the templates directory
-        Error: {str(e)}
-        """
+        Error: {str(e)}"""
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
@@ -86,17 +87,15 @@ def upload_files():
             timestamp = datetime.now().isoformat()
             # Process the file using knowledgeGraph with timestamp
             result = process_file(filepath, OUTPUT_FOLDER, timestamp)
-            
             results.append({
                 'filename': filename,
                 'status': result,
                 'timestamp': timestamp
             })
-            
             # Clean up uploaded file
             os.remove(filepath)
     
-    try:
+    try:    
         # Rebuild knowledge graph after new files are processed
         kg_builder.build_graph()
         kg_builder.visualize_graph()
@@ -125,22 +124,19 @@ def list_files():
                     data = json.load(f)
                 
                 is_valid, _ = validate_json_file(file_path)
-                
                 files_data.append({
                     'filename': data.get('filename'),
                     'file_type': data.get('file_type'),
                     'json_path': filename,
                     'timestamp': data.get('timestamp'),
-                    'is_valid': is_valid
+                    'is_valid': is_valid,
                 })
                 logger.debug(f"Successfully processed {filename}")
-                
             except Exception as e:
                 logger.error(f"Error reading {filename}: {str(e)}")
         
         logger.debug(f"Returning files_data: {files_data}")
         return jsonify(files_data)
-        
     except Exception as e:
         logger.error(f"Error in list_files: {str(e)}")
         return jsonify([])
@@ -174,7 +170,6 @@ def serve_json(filename):
 def delete_file(filename):
     try:
         file_path = os.path.join(OUTPUT_FOLDER, filename)
-        
         if os.path.exists(file_path):
             os.remove(file_path)
             return jsonify({'status': 'success', 'message': f'File {filename} deleted'})
@@ -194,7 +189,6 @@ def validate_file(filename):
             return jsonify({'status': 'success', 'message': 'File structure is valid'})
         else:
             return jsonify({'status': 'error', 'message': error}), 400
-            
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -209,7 +203,11 @@ def build_graph():
 
 @app.route('/graph/query', methods=['POST'])
 def query_graph():
-    query = request.json.get('query')
+    request_data = request.get_json()
+    if not request_data:
+        return jsonify({'error': 'No request data provided'}), 400
+        
+    query = request_data.get('query')
     if not query:
         return jsonify({'error': 'No query provided'}), 400
     
@@ -223,7 +221,44 @@ def query_graph():
 def view_graph():
     return send_from_directory('static/graph', 'knowledge_graph.html')
 
+@app.route('/chat')
+def chat_interface():
+    return render_template('chat.html')
+
+@app.route('/chat/session', methods=['POST'])
+def create_chat_session():
+    session_id = chat_manager.create_session()
+    return jsonify({'session_id': session_id})
+
+@app.route('/chat/message', methods=['POST'])
+def chat_message():
+    request_data = request.get_json()
+    if not request_data:
+        return jsonify({'error': 'No request data provided'}), 400
+        
+    session_id = request_data.get('session_id')
+    message = request_data.get('message')
+    
+    if not session_id or not message:
+        return jsonify({'error': 'Missing session_id or message'}), 400
+    
+    session = chat_manager.get_session(session_id)
+    if not session:
+        return jsonify({'error': 'Invalid or expired session'}), 404
+    
+    # Add user message to history
+    session.add_message("user", message)
+    
+    # Generate response
+    response = session.generate_response(message)
+    
+    # Add assistant response to history
+    session.add_message("assistant", response)
+    
+    return jsonify({
+        'response': response,
+        'session_id': session_id
+    })
+
 if __name__ == '__main__':
-    print(f"Template directory: {TEMPLATE_DIR}")
-    print(f"Template exists: {os.path.exists(os.path.join(TEMPLATE_DIR, 'index.html'))}")
     app.run(debug=True, port=5000)

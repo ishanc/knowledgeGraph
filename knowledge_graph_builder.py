@@ -105,62 +105,22 @@ class KnowledgeGraphBuilder:
         """Extract entities and relations with enhanced granularity"""
         doc = self.nlp(text)
         
-        system_prompt = """You are an expert at extracting detailed entities and relationships from technical documents.
-        Analyze the text with extreme detail and identify:
-        1. Main concepts and their subconcepts (up to 3 levels deep)
-        2. Technical terms and their definitions
-        3. Process steps and their sequence
-        4. Conditions and requirements
-        5. Cross-references and dependencies
-        6. Attributes and parameters
-        7. Usage examples and contexts
-        8. Related technical standards
-        9. Implementation details
-        10. Dependencies and prerequisites
+        messages = [{
+            "role": "user",
+            "content": f"""Extract entities and relationships from this text. Format as JSON with entities array containing text, category, weight, and relationships:
 
-        Format the response as JSON with the following detailed structure:
-        {
-            "entities": [
-                {
-                    "text": "entity_name",
-                    "category": "detailed_category",
-                    "weight": 0.8,
-                    "level": 1,
-                    "technical_details": {
-                        "definition": "technical definition",
-                        "parameters": ["param1", "param2"],
-                        "requirements": ["req1", "req2"]
-                    },
-                    "implementation": {
-                        "steps": ["step1", "step2"],
-                        "conditions": ["condition1", "condition2"]
-                    },
-                    "subtopics": [{
-                        "name": "subtopic1",
-                        "level": 2,
-                        "details": ["detail1", "detail2"]
-                    }],
-                    "relationships": [
-                        {
-                            "target": "other_entity",
-                            "type": "relationship_type",
-                            "strength": 0.7,
-                            "dependency_type": "prerequisite|corequisite|postrequisite",
-                            "context": "usage context"
-                        }
-                    ]
-                }
-            ]
-        }"""
+Text to analyze: {text}"""
+        }]
         
         response = self.mistral.generate_with_context(
-            system_prompt=system_prompt,
-            user_prompt=text,
+            messages=messages,
             max_tokens=1000,
             temperature=0.1
         )
         
         try:
+            if response is None:
+                return []
             enhanced_analysis = json.loads(response)
         except json.JSONDecodeError:
             enhanced_analysis = {"entities": []}
@@ -176,7 +136,6 @@ class KnowledgeGraphBuilder:
                     'text': entity["text"],
                     'label': entity.get("category", "CONCEPT"),
                     'weight': entity.get("weight", 0.5),
-                    'subtopics': entity.get("subtopics", []),
                     'relationships': entity.get("relationships", [])
                 })
                 seen_entities.add(entity["text"])
@@ -187,8 +146,7 @@ class KnowledgeGraphBuilder:
                 entities_relations.append({
                     'text': ent.text,
                     'label': ent.label_,
-                    'weight': 0.5,  # Default weight
-                    'subtopics': [],
+                    'weight': 0.5,
                     'relationships': []
                 })
                 seen_entities.add(ent.text)
@@ -197,41 +155,27 @@ class KnowledgeGraphBuilder:
 
     def extract_hierarchical_relations(self, text: str) -> List[Dict[str, Any]]:
         """Extract hierarchical relationships between entities"""
-        system_prompt = """Analyze the text and extract hierarchical relationships between concepts.
-        For each concept identify:
-        1. Parent concepts (broader categories)
-        2. Child concepts (more specific instances)
-        3. Related concepts (semantically similar)
-        4. Properties and attributes
-        5. Actions or capabilities
+        messages = [{
+            "role": "user",
+            "content": f"""Analyze this text and identify hierarchical relationships. List concepts with their parents, children, and related concepts:
 
-        Format as JSON:
-        {
-            "concepts": [
-                {
-                    "name": "concept_name",
-                    "type": "concept_type",
-                    "parents": ["parent1", "parent2"],
-                    "children": ["child1", "child2"],
-                    "related": ["related1", "related2"],
-                    "properties": ["prop1", "prop2"],
-                    "actions": ["action1", "action2"],
-                    "importance": 0.8
-                }
-            ]
-        }"""
-        
-        response = self.mistral.generate_with_context(
-            system_prompt=system_prompt,
-            user_prompt=text,
-            max_tokens=1500,
-            temperature=0.1
-        )
+Text to analyze: {text}"""
+        }]
         
         try:
+            response = self.mistral.generate_with_context(
+                messages=messages,
+                max_tokens=1500,
+                temperature=0.1
+            )
+            if response is None:
+                return []
             concepts = json.loads(response)
-            return concepts.get("concepts", [])  # Return the list directly
+            return concepts.get("concepts", [])
         except json.JSONDecodeError:
+            return []
+        except Exception as e:
+            logger.error(f"Error extracting hierarchical relations: {e}")
             return []
 
     def identify_topics(self, texts: List[str], n_topics: int = 15) -> Tuple[Dict[str, List[str]], np.ndarray]:
@@ -375,32 +319,27 @@ class KnowledgeGraphBuilder:
 
     def _generate_specific_topic_name(self, top_terms: List[str], cluster_texts: List[str]) -> str:
         """Generate more specific and meaningful topic names"""
-        system_prompt = """Given these key terms and example texts from a topic cluster, 
-        generate a specific, meaningful topic name (2-4 words) that captures the main theme.
-        Consider technical terms and domain-specific concepts.
-        Focus on being precise rather than general.
+        sample_content = "\n".join(cluster_texts[:2])
         
-        Example formats:
-        - "Enterprise Configuration Management"
-        - "Sales Document Processing"
-        - "Tax Code Implementation"
-        
-        Terms: {terms}
-        
-        Example content: {content}
-        
-        Response should be just the topic name, nothing else."""
-        
-        sample_content = "\n".join(cluster_texts[:2])  # Use first two texts as examples
-        prompt = system_prompt.format(
-            terms=", ".join(top_terms[:10]),
-            content=sample_content[:500]  # Limit content length
-        )
+        messages = [{
+            "role": "user",
+            "content": f"""Generate a specific topic name (2-4 words) based on these terms and content:
+
+Terms: {', '.join(top_terms[:10])}
+Content: {sample_content[:500]}"""
+        }]
         
         try:
-            topic_name = self.mistral.generate_response(prompt, max_tokens=20, temperature=0.3)
-            topic_name = topic_name.strip().replace('\n', ' ').title()
-            return topic_name if topic_name else f"Topic ({', '.join(top_terms[:3])})"
+            topic_name = self.mistral.generate_with_context(
+                messages=messages,
+                max_tokens=20,
+                temperature=0.3
+            )
+            if topic_name is None:
+                return f"Topic ({', '.join(top_terms[:3])})"
+            
+            cleaned_name = topic_name.strip().replace('\n', ' ').title()
+            return cleaned_name if cleaned_name else f"Topic ({', '.join(top_terms[:3])})"
         except Exception as e:
             logger.warning(f"Error generating specific topic name: {e}")
             return f"Topic ({', '.join(top_terms[:3])})"
