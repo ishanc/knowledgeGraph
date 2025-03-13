@@ -1,0 +1,127 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 900px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#ff7f0e", "id": "\"Sap Pricing Condition Management\"", "label": "\"Sap Pricing Condition Management\"", "shape": "dot", "size": 30, "title": "Topic: \"Sap Pricing Condition Management\"\nTerms: condition, pricing, condition types, types, records, tax, access, code, type, condition records, condition type, purpose, exclusion, indicator, sequence, pricing procedures, procedures, tables, fields, steps"}, {"color": "#ff7f0e", "id": "Delivery Document Configuration", "label": "Delivery Document Configuration", "shape": "dot", "size": 30, "title": "Topic: Delivery Document Configuration\nTerms: delivery, goods, item, shipping, deliveries, goods issue, issue, movement, items, category, relevant, item categories, categories, item category, goods movement, delivery document, type, document, delivery type, control"}, {"color": "#ff7f0e", "id": "\"Sap S/4Hana Sales Enterprise Structures\"", "label": "\"Sap S/4Hana Sales Enterprise Structures\"", "shape": "dot", "size": 30, "title": "Topic: \"Sap S/4Hana Sales Enterprise Structures\"\nTerms: structures, centralized, decentralized, enterprise structures, decentralized structures, enterprise, client, consistency, 4hana sales, sap 4hana sales, group, structure, company, 4hana, sap 4hana, practice, best practice, sales, control, best"}, {"color": "#ff7f0e", "id": "\"Sales Document Configuration\"", "label": "\"Sales Document Configuration\"", "shape": "dot", "size": 30, "title": "Topic: \"Sales Document Configuration\"\nTerms: sales, document, procedure, documents, sales documents, pricing, configuration path spro sales, configuration, path spro sales distribution, path spro sales, sales document, pricing procedure, spro sales, spro sales distribution, sales distribution sales, spro sales distribution sales, distribution sales, configuration path, configuration path spro, path spro"}, {"color": "#ff7f0e", "id": "Sap Sales Fulfillment", "label": "Sap Sales Fulfillment", "shape": "dot", "size": 30, "title": "Topic: Sap Sales Fulfillment\nTerms: delivery, custom, sales, delivery documents, order, goods, sap, shipping, processing, manage, documents, sap 4hana, 4hana, returns, sales order, fulfillment, fields, delivery processing, delivery document, user"}, {"color": "#ff7f0e", "id": "\"Sales Division Assignment\"", "label": "\"Sales Division Assignment\"", "shape": "dot", "size": 30, "title": "Topic: \"Sales Division Assignment\"\nTerms: control, yes, dividing sales organization product, division code, division best practice ensure, division best practice, division best, division assign sales organization, division assign sales, division assign, division, dividing sales organization, division code ovx7 configuration, dividing sales, dividing, distribution shipping deliveries define, distribution shipping deliveries, distribution shipping, distribution sales sales documents, distribution sales sales"}, {"color": "#ff7f0e", "id": "\"Channel-Specific Sales Strategies\"", "label": "\"Channel-Specific Sales Strategies\"", "shape": "dot", "size": 30, "title": "Topic: \"Channel-Specific Sales Strategies\"\nTerms: channel, marketing, channels, market, distribution, distribution channels, efforts, sales, distribution channel, reference distribution channel, reference distribution, helps, processes, pros, marketing efforts, segmentation, different routes market wholesale, online sales, online, market wholesale"}, {"color": "#ff7f0e", "id": "\"Sales Order Pricing\"", "label": "\"Sales Order Pricing\"", "shape": "dot", "size": 30, "title": "Topic: \"Sales Order Pricing\"\nTerms: data, master, material, information, master data, customer, topics, material master, pricing, specific, processing, condition master, collective, specific data, sales, customer specific, materials, includes, automatic, maintaining"}, {"color": "#ff7f0e", "id": "\"Outbound Delivery Processing\"", "label": "\"Outbound Delivery Processing\"", "shape": "dot", "size": 30, "title": "Topic: \"Outbound Delivery Processing\"\nTerms: ewm, goods, delivery, inbound, warehouse, picking, goods issue, issue, outbound, monitor, deliveries, outbound delivery, picking packing, shipping points, packing, points, status, shipping, post, post goods"}, {"color": "#ff7f0e", "id": "\"Sales Listing/Exclusion Configuration\"", "label": "\"Sales Listing/Exclusion Configuration\"", "shape": "dot", "size": 30, "title": "Topic: \"Sales Listing/Exclusion Configuration\"\nTerms: packing, free, free goods, exclusion, material, goods, create, sales, configuration, code, products, products sold, overview, sold, determination, free goods determination, goods determination, specific, functions, entire"}, {"color": "#ff7f0e", "id": "\"Sales Area Definition\"", "label": "\"Sales Area Definition\"", "shape": "dot", "size": 30, "title": "Topic: \"Sales Area Definition\"\nTerms: sales, product, sales strategies, strategies, pros, specific sales, lead, lines service, lines service categories, better, product lines service categories, product lines service, service categories, product lines, service, lines, performance, area, sales area, division"}, {"color": "#ff7f0e", "id": "Division Assignment", "label": "Division Assignment", "shape": "dot", "size": 30, "title": "Topic: Division Assignment\nTerms: procedure, documents, conditions, regions, yes, division best, division assign sales organization, division assign sales, division assign, division, dividing sales organization product, dividing sales organization, dividing sales, division best practice ensure, dividing, distribution shipping deliveries define, distribution shipping deliveries, distribution shipping, distribution sales sales documents, distribution sales sales"}, {"color": "#ff7f0e", "id": "\"Division Performance Optimization\"", "label": "\"Division Performance Optimization\"", "shape": "dot", "size": 30, "title": "Topic: \"Division Performance Optimization\"\nTerms: resources, divisions, administrative, operations, overall, performance, division, organization, operate silos leading lack, administrative work strain, administrative work strain resources, divisions requires comprehensive administrative, divisions requires comprehensive, operate silos, operate silos leading, administrative overhead managing multiple, operate, divisions requires, divisions operate silos leading, administrative work"}, {"color": "#ff7f0e", "id": "\"Sales Taxcode", "label": "\"Sales Taxcode", "shape": "dot", "size": 30, "title": "Topic: \"Sales Taxcode\nTerms: goods, billing, documents, 12, billing documents, invoices, credit, memo, deliveries, issued, binding, service, sales, production, outbound, created, products, shipping, outbound deliveries, processing"}, {"color": "#ff7f0e", "id": "\"Delivery Date Availability\"", "label": "\"Delivery Date Availability\"", "shape": "dot", "size": 30, "title": "Topic: \"Delivery Date Availability\"\nTerms: scheduling, times, delivery, date, lead, time, requested, lead times, working, availability, backward, scheduling used, transit, delivery scheduling, transportation, 0vlh, code 0vlh, availability check, check, delivery date"}, {"color": "#ff7f0e", "id": "\"Crossing", "label": "\"Crossing", "shape": "dot", "size": 30, "title": "Topic: \"Crossing\nTerms: resource, especially, integration, data, complex, divisions, setting, conflicts, conflict conflicts arise resource, arise resource allocation especially, conflicts arise, conflicts arise resource, conflicts arise resource allocation, arise, arise resource, conflict conflicts arise, arise resource allocation, metrics kpis, company resources priorities, company resources"}, {"color": "#ff7f0e", "id": "Data Governance Best Practices", "label": "Data Governance Best Practices", "shape": "dot", "size": 30, "title": "Topic: Data Governance Best Practices\nTerms: data, governance, data governance, structure, best practice, practice, best, business, regular audits, regular audits clear, ownership, ownership comprehensive, growth changes business, ownership comprehensive documentation, practice implement robust data, practice implement robust, growth changes business strategy, future growth changes business, future growth changes, maintain integrity"}, {"color": "#ff7f0e", "id": "\"Sales And Distribution", "label": "\"Sales And Distribution", "shape": "dot", "size": 30, "title": "Topic: \"Sales And Distribution\nTerms: configuration path spro enterprise, enterprise structure, path spro enterprise, path spro enterprise structure, distribution, spro enterprise structure, spro enterprise, enterprise, sales, sales organization, structure, organization, assign, distribution channel, channel, sales distribution, configuration path spro, configuration path, assignment sales distribution, assignment sales"}, {"color": "#ff7f0e", "id": "Condition Contract Management", "label": "Condition Contract Management", "shape": "dot", "size": 30, "title": "Topic: Condition Contract Management\nTerms: condition, condition contract, rebate, contract, settlement, condition contracts, contracts, condition contract management, linked, contract management, tax, sales, types, data, master, area data, information needed, sales area data, fi, mandatory information needed"}, {"color": "#ff7f0e", "id": "\"Company Code Definition\"", "label": "\"Company Code Definition\"", "shape": "dot", "size": 30, "title": "Topic: \"Company Code Definition\"\nTerms: entity, company, legal, company code, practice, best practice, best, represents independent, codes based legal fiscal, codes based legal, represents independent accounting, represents independent accounting unit, practice align, company code reflect entity, requirements company, requirements company code, requirements company code reflect, company code reflect, company code represents, practice align sales organizations"}, {"color": "#ff7f0e", "id": "Edi Delivery Confirmation", "label": "Edi Delivery Confirmation", "shape": "dot", "size": 30, "title": "Topic: Edi Delivery Confirmation\nTerms: edi, message, delivery, delivery confirmation, confirmation, messages, desadv, date, edi message, edi messages, message types, date time, delivery documents, quantity, type, delvry, output, delivery document, document, time"}, {"color": "#ff7f0e", "id": "Division Code Best Practices", "label": "Division Code Best Practices", "shape": "dot", "size": 30, "title": "Topic: Division Code Best Practices\nTerms: assignment, basic functions, basic, functions, distributing goods services, dividing sales organization product, division code ovx7, division code, division best practice ensure, division best practice, division best, division assign sales organization, division assign sales, division assign, division, dividing sales organization, division monitored, dividing sales, dividing, distribution shipping deliveries define"}, {"color": "#ff7f0e", "id": "\"Sales Order Management\"", "label": "\"Sales Order Management\"", "shape": "dot", "size": 30, "title": "Topic: \"Sales Order Management\"\nTerms: additional license, license, additional, billing, best, sap, sales, management, link, best practice link, practice link, intercompany, credit, workflow, best practices, sap best practices, sap best, license needed best, license needed best practice, additional license needed best"}, {"color": "#ff7f0e", "id": "\"Sap Sd Sales Org Setup\"", "label": "\"Sap Sd Sales Org Setup\"", "shape": "dot", "size": 30, "title": "Topic: \"Sap Sd Sales Org Setup\"\nTerms: aatp, sap, picking, sales, analytical, business, best, license, additional license, activate, configuration, advanced, business needs, needs, apps, sap fiori, fiori, additional, rules, order fulfillment"}, {"color": "#1f77b4", "id": "SAP_SD_business_process_and_configuration_documents.json", "label": "SAP_SD_business_process_and_configuration_documents.json", "shape": "dot", "size": 20, "title": "Entity: SAP_SD_business_process_and_configuration_documents.json\nType: Unknown\nWeight: 0.5"}, {"color": "#1f77b4", "id": "SAP_SD_enterprise_structure.json", "label": "SAP_SD_enterprise_structure.json", "shape": "dot", "size": 20, "title": "Entity: SAP_SD_enterprise_structure.json\nType: Unknown\nWeight: 0.5"}]);
+                  edges = new vis.DataSet([{"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sap Pricing Condition Management\"", "width": 1.8438756465911865}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sap S/4Hana Sales Enterprise Structures\"", "width": 4.041905701160431}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sales Document Configuration\"", "width": 1.7824764549732208}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "Sap Sales Fulfillment", "width": 2.5929483771324158}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sales Division Assignment\"", "width": 1.5805795788764954}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sales Area Definition\"", "width": 1.6840174794197083}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Company Code Definition\"", "width": 1.5143638849258423}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sales Order Management\"", "width": 1.9764088094234467}, {"from": "SAP_SD_business_process_and_configuration_documents.json", "title": "belongs_to", "to": "\"Sap Sd Sales Org Setup\"", "width": 2.8444835543632507}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sap S/4Hana Sales Enterprise Structures\"", "width": 2.1721000969409943}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sales Document Configuration\"", "width": 1.6242846846580505}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "Sap Sales Fulfillment", "width": 1.6269832849502563}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sales Division Assignment\"", "width": 1.9313091039657593}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sales Area Definition\"", "width": 1.6370639204978943}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sales Taxcode", "width": 1.987156718969345}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "Data Governance Best Practices", "width": 1.5542064607143402}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Company Code Definition\"", "width": 3.8195663690567017}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "Division Code Best Practices", "width": 1.902092695236206}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sales Order Management\"", "width": 1.8712538480758667}, {"from": "SAP_SD_enterprise_structure.json", "title": "belongs_to", "to": "\"Sap Sd Sales Org Setup\"", "width": 2.0455577969551086}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"forceAtlas2Based": {"gravitationalConstant": -50, "centralGravity": 0.01, "springLength": 100, "springConstant": 0.08}, "maxVelocity": 50, "solver": "forceAtlas2Based", "timestep": 0.35, "stabilization": {"iterations": 150}}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

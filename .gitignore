@@ -10,7 +10,17 @@ __pycache__/
 # Uploaded and processed files
 uploads/
 *.json
+processed_files/
 
 # System files
 .DS_Store
+
+# Environment files
 .env
+.env.template
+*.env
+!.env.template
+
+# Cache files
+cache/
+*.joblib
