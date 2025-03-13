@@ -16,6 +16,7 @@ import joblib
 from pathlib import Path
 import sys  # Import sys directly
 from scipy import sparse  # Add this import
+from datetime import datetime, date  # Add this import
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,24 @@ class KnowledgeGraphBuilder:
         # Initialize empty cache
         self.embedding_cache = {}
         self._load_cache()
+
+        self.relationship_hierarchy = {
+            'is_a': 1,  # Highest priority
+            'has': 0.9,
+            'part_of': 0.8,
+            'belongs_to': 0.7,
+            'related_to': 0.6,
+            'similar_to': 0.5,
+            'referenced_by': 0.4,
+            'mentioned_in': 0.3
+        }
+
+        # Add conversion utilities
+        self.serializable_types = (int, float, str, bool, list, dict)
+        
+        # Define numpy numeric types
+        self.numpy_int_types = (np.integer,)  # Base class for numpy integer types
+        self.numpy_float_types = (np.floating,)  # Base class for numpy float types
 
     def _load_cache(self):
         """Load cached embeddings if they exist"""
@@ -407,6 +426,35 @@ class KnowledgeGraphBuilder:
         analyze_value(json_data)
         return schema
 
+    def _make_json_serializable(self, obj):
+        """Convert objects to JSON serializable format"""
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, self.numpy_int_types):
+            return int(obj)
+        if isinstance(obj, self.numpy_float_types):
+            return float(obj)
+        if isinstance(obj, dict):
+            return {k: self._make_json_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [self._make_json_serializable(i) for i in obj]
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if hasattr(obj, '__dict__'):
+            return self._make_json_serializable(obj.__dict__)
+        return obj
+
+    def _prepare_node_data(self, data):
+        """Prepare node data for storage"""
+        serializable_data = {}
+        for key, value in data.items():
+            if key == 'embedding':
+                # Store embeddings separately or convert to list
+                serializable_data[key] = self._make_json_serializable(value)
+            else:
+                serializable_data[key] = self._make_json_serializable(value)
+        return serializable_data
+
     def build_graph(self):
         """Build enhanced knowledge graph with more granular relationships"""
         # Clear existing graph data
@@ -423,67 +471,115 @@ class KnowledgeGraphBuilder:
                 with open(os.path.join(self.processed_files_dir, filename), 'r') as f:
                     data = json.load(f)
                     content = str(data['data']['content'])
+                    timestamp = data.get('metadata', {}).get('timestamp') or data.get('timestamp') or datetime.now().isoformat()
+                    source = data.get('metadata', {}).get('source') or filename
+                    confidence = data.get('metadata', {}).get('confidence', 0.8)
+                    
                     all_texts.append(content)
-                    text_sources[content] = filename
-        
+                    text_sources[content] = {
+                        'filename': filename,
+                        'timestamp': timestamp,
+                        'source': source,
+                        'confidence': confidence
+                    }
+
         # Get topics and embeddings
         topics, doc_embeddings = self.identify_topics(all_texts)
         
         # Add topic nodes with enhanced properties
         for topic, terms in topics.items():
-            self.nx_graph.add_node(topic,
-                                 type='topic',
-                                 terms=terms,
-                                 size=30,
-                                 color='#ff7f0e',
-                                 embedding=self.get_embedding(topic))
+            node_data = {
+                'type': 'topic',
+                'terms': terms,
+                'size': 30,
+                'color': '#ff7f0e',
+                'embedding': self.get_embedding(topic)
+            }
+            self.nx_graph.add_node(topic, **self._prepare_node_data(node_data))
         
         # Process each document
         similarity_threshold = 0.3  # Changed from 0.5
         for idx, content in enumerate(all_texts):
+            source_info = text_sources[content]
+            
             # Extract hierarchical relationships with enhanced detail
             hierarchy = self.extract_hierarchical_relations(content)
             
             # Process each concept
             for concept in hierarchy:
-                # Add concept node
-                self.nx_graph.add_node(concept['name'],
-                                     type='concept',
-                                     concept_type=concept['type'],
-                                     properties=concept['properties'],
-                                     actions=concept['actions'],
-                                     importance=concept.get('importance', 0.5),
-                                     size=25 * concept.get('importance', 0.5),
-                                     color='#1f77b4',
-                                     embedding=self.get_embedding(concept['name']))
+                # Add concept node with enhanced metadata
+                node_data = {
+                    'type': 'concept',
+                    'concept_type': concept['type'],
+                    'properties': concept['properties'],
+                    'actions': concept['actions'],
+                    'importance': concept.get('importance', 0.5),
+                    'size': 25 * concept.get('importance', 0.5),
+                    'color': '#1f77b4',
+                    'embedding': self.get_embedding(concept['name']),
+                    'timestamp': source_info['timestamp'],
+                    'source': source_info['source'],
+                    'confidence': source_info['confidence'],
+                    'version': '1.0'
+                }
+                self.nx_graph.add_node(concept['name'], **self._prepare_node_data(node_data))
                 
-                # Add hierarchical relationships
-                for parent in concept['parents']:
-                    self.nx_graph.add_edge(concept['name'], parent,
-                                         type='is_a',
-                                         weight=0.8)
-                
-                for child in concept['children']:
-                    self.nx_graph.add_edge(concept['name'], child,
-                                         type='has',
-                                         weight=0.8)
-                
-                for related in concept['related']:
-                    self.nx_graph.add_edge(concept['name'], related,
-                                         type='related_to',
-                                         weight=0.6)
-            
-            # Connect to relevant topics using semantic similarity
-            doc_embedding = np.array(doc_embeddings[idx]).reshape(1, -1)  # Convert to 2D array
+                # Add bidirectional relationships with hierarchy
+                for rel_type, targets in [
+                    ('is_a', concept['parents']),
+                    ('has', concept['children']),
+                    ('related_to', concept['related'])
+                ]:
+                    hierarchy_weight = self.relationship_hierarchy.get(rel_type, 0.5)
+                    for target in targets:
+                        # Forward relationship
+                        edge_data = {
+                            'type': rel_type,
+                            'weight': hierarchy_weight * source_info['confidence'],
+                            'timestamp': source_info['timestamp'],
+                            'source': source_info['source'],
+                            'confidence': source_info['confidence'],
+                            'bidirectional': True
+                        }
+                        self.nx_graph.add_edge(concept['name'], target, 
+                                             **self._prepare_node_data(edge_data))
+                        
+                        # Reverse relationship
+                        reverse_rel = {
+                            'is_a': 'has_instance',
+                            'has': 'belongs_to',
+                            'related_to': 'related_to'
+                        }.get(rel_type, f'reverse_{rel_type}')
+                        
+                        edge_data = {
+                            'type': reverse_rel,
+                            'weight': hierarchy_weight * source_info['confidence'],
+                            'timestamp': source_info['timestamp'],
+                            'source': source_info['source'],
+                            'confidence': source_info['confidence'],
+                            'bidirectional': True
+                        }
+                        self.nx_graph.add_edge(target, concept['name'],
+                                             **self._prepare_node_data(edge_data))
+
+            # Update topic connections with timestamps and confidence
+            doc_embedding = np.array(doc_embeddings[idx]).reshape(1, -1)
             for topic in topics:
-                topic_embedding = np.array(self.nx_graph.nodes[topic]['embedding']).reshape(1, -1)
+                topic_embedding = np.array(self.nx_graph.nodes[topic]['embedding'])
+                if len(topic_embedding.shape) == 1:
+                    topic_embedding = topic_embedding.reshape(1, -1)
                 similarity = float(cosine_similarity(doc_embedding, topic_embedding)[0, 0])
-                if similarity > similarity_threshold:  # Lower threshold for more connections
-                    self.nx_graph.add_edge(text_sources[content],
-                                         topic,
-                                         type='belongs_to',
-                                         weight=similarity)
-        
+                if similarity > similarity_threshold:
+                    edge_data = {
+                        'type': 'belongs_to',
+                        'weight': similarity,
+                        'timestamp': source_info['timestamp'],
+                        'source': source_info['source'],
+                        'confidence': source_info['confidence']
+                    }
+                    self.nx_graph.add_edge(source_info['filename'], topic,
+                                         **self._prepare_node_data(edge_data))
+
         # Save embeddings cache
         self._save_cache()
 
@@ -492,31 +588,53 @@ class KnowledgeGraphBuilder:
         nt = net.Network(height="900px", width="100%", bgcolor="#ffffff")
         nt.toggle_physics(True)
         
-        # Add nodes with enhanced visualization
+        # Add nodes with enhanced semantic information
         for node, data in self.nx_graph.nodes(data=True):
             size = data.get('size', 20)
-            color = data.get('color', '#1f77b4')  # Default color for entities
+            color = data.get('color', '#1f77b4')
             
+            # Enhanced node metadata for better semantic understanding
             if data.get('type') == 'topic':
-                title = f"Topic: {node}\nTerms: {', '.join(data['terms'])}"
+                title = (f"Topic: {node}\n"
+                        f"Terms: {', '.join(data['terms'])}\n"
+                        f"Weight: {data.get('weight', 0.5)}\n"
+                        f"Connected Topics: {len(self.nx_graph[node])}")
+                node_type = "topic"
             else:
-                title = f"Entity: {node}\nType: {data.get('label', 'Unknown')}\nWeight: {data.get('weight', 0.5)}"
-            
+                title = (f"Entity: {node}\n"
+                        f"Type: {data.get('label', 'Unknown')}\n"
+                        f"Weight: {data.get('weight', 0.5)}\n"
+                        f"Properties: {', '.join(str(k) + ': ' + str(v) for k,v in data.items() if k not in ['size', 'color', 'label', 'weight'])}")
+                node_type = data.get('label', 'entity')
+                
             nt.add_node(node,
                        label=node,
                        title=title,
                        size=size,
-                       color=color)
+                       color=color,
+                       node_type=node_type,
+                       weight=data.get('weight', 0.5),
+                       metadata=data)
         
-        # Add edges with enhanced visualization
-        for edge in self.nx_graph.edges(data=True):
-            width = edge[2].get('weight', 0.5) * 5  # Edge width based on relationship strength
-            nt.add_edge(edge[0],
-                       edge[1],
-                       title=edge[2].get('type', 'related'),
-                       width=width)
+        # Add edges with semantic relationship information
+        for source, target, data in self.nx_graph.edges(data=True):
+            width = data.get('weight', 1) * 5
+            relation_type = data.get('type', 'related')
+            title = (f"Relationship: {relation_type}\n"
+                    f"Source: {source}\n"
+                    f"Target: {target}\n"
+                    f"Weight: {data.get('weight', 1)}\n"
+                    f"Properties: {', '.join(str(k) + ': ' + str(v) for k,v in data.items() if k not in ['weight', 'type'])}")
+                    
+            nt.add_edge(source,
+                       target,
+                       title=title,
+                       width=width,
+                       relation_type=relation_type,
+                       weight=data.get('weight', 1),
+                       metadata=data)
         
-        # Configure physics for better layout
+        # Configure physics for better visualization
         nt.set_options("""
         {
           "physics": {
@@ -530,6 +648,22 @@ class KnowledgeGraphBuilder:
             "solver": "forceAtlas2Based",
             "timestep": 0.35,
             "stabilization": {"iterations": 150}
+          },
+          "nodes": {
+            "font": {
+              "size": 12,
+              "strokeWidth": 2
+            }
+          },
+          "edges": {
+            "font": {
+              "size": 10,
+              "align": "middle"
+            },
+            "smooth": {
+              "type": "continuous",
+              "roundness": 0.5
+            }
           }
         }
         """)
@@ -550,3 +684,55 @@ class KnowledgeGraphBuilder:
                     'object': str(obj)
                 })
         return results
+
+    def get_node_history(self, node_id: str) -> List[Dict[str, Any]]:
+        """Get the history of changes for a node"""
+        if node_id not in self.nx_graph:
+            return []
+            
+        node_data = self.nx_graph.nodes[node_id]
+        history = [{
+            'timestamp': node_data.get('timestamp'),
+            'source': node_data.get('source'),
+            'confidence': node_data.get('confidence'),
+            'version': node_data.get('version'),
+            'type': 'node_created'
+        }]
+        
+        # Add relationship changes
+        for _, neighbor, edge_data in self.nx_graph.edges(node_id, data=True):
+            history.append({
+                'timestamp': edge_data.get('timestamp'),
+                'source': edge_data.get('source'),
+                'confidence': edge_data.get('confidence'),
+                'type': 'relationship_added',
+                'relationship': edge_data.get('type'),
+                'target': neighbor
+            })
+            
+        # Sort by timestamp
+        history.sort(key=lambda x: x['timestamp'])
+        return history
+
+    def get_relationship_confidence(self, source: str, target: str) -> float:
+        """Get the confidence score for a relationship between two nodes"""
+        if not self.nx_graph.has_edge(source, target):
+            return 0.0
+            
+        edge_data = self.nx_graph.get_edge_data(source, target)
+        return edge_data.get('confidence', 0.0)
+
+    def validate_relationship(self, source: str, target: str, relationship_type: str) -> Dict[str, Any]:
+        """Validate a relationship between nodes"""
+        if not self.nx_graph.has_edge(source, target):
+            return {'valid': False, 'reason': 'No relationship exists'}
+            
+        edge_data = self.nx_graph.get_edge_data(source, target)
+        
+        return {
+            'valid': edge_data.get('type') == relationship_type,
+            'confidence': edge_data.get('confidence', 0.0),
+            'source': edge_data.get('source'),
+            'timestamp': edge_data.get('timestamp'),
+            'actual_type': edge_data.get('type')
+        }
