@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List, Dict, Any
-import json
+from typing import Optional
 import logging
 from mistral_wrapper import MistralWrapper
 
@@ -46,6 +45,8 @@ class ChatSession:
         results.sort(key=lambda x: x['similarity'], reverse=True)
         context_items = results[:max_results]
         
+        if not context_items:
+            return ""
         return "\n".join([f"{item['type']}: {item['content']}" for item in context_items])
 
     def generate_response(self, user_message: str) -> str:
@@ -85,7 +86,7 @@ class ChatSession:
                 max_tokens=500,
                 temperature=0.7
             )
-            return response
+            return response if response is not None else "I apologize, but I was unable to generate a response."
             
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")

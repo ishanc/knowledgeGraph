@@ -675,3 +675,16 @@ Content: {sample_content[:500]}"""
             'timestamp': edge_data.get('timestamp'),
             'actual_type': edge_data.get('type')
         }
+
+    def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        """Calculate cosine similarity between two vectors or sets of vectors"""
+        # Ensure inputs are 2D
+        if a.ndim == 1:
+            a = a.reshape(1, -1)
+        if b.ndim == 1:
+            b = b.reshape(1, -1)
+            
+        # Calculate cosine similarity
+        norm_a = np.linalg.norm(a, axis=1).reshape(-1, 1)
+        norm_b = np.linalg.norm(b, axis=1).reshape(-1, 1)
+        return np.dot(a / norm_a, (b / norm_b).T)
