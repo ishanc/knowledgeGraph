@@ -9,7 +9,6 @@ import logging
 from mistral_wrapper import MistralWrapper
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans, DBSCAN
-from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 from sentence_transformers import SentenceTransformer
 import joblib
@@ -21,27 +20,33 @@ from datetime import datetime, date  # Add this import
 logger = logging.getLogger(__name__)
 
 class KnowledgeGraphBuilder:
-    def __init__(self, processed_files_dir: str, output_dir: str):
+    """Knowledge Graph Builder for processing and visualizing document relationships."""
+    
+    def __init__(self, processed_files_dir: str, output_dir: str) -> None:
         self.processed_files_dir = processed_files_dir
         self.output_dir = output_dir
         self.graph = Graph()
         self.nx_graph = nx.DiGraph()
+        self.max_text_length = 5000000  # Increased to 5M characters
         
         # Try to load standard model first
         try:
             logger.info("Loading spaCy model...")
-            self.nlp = spacy.load("en_core_web_lg")  # Use large model instead of transformer
+            self.nlp = spacy.load("en_core_web_lg")
+            self.nlp.max_length = self.max_text_length
             logger.info("Using en_core_web_lg model")
         except OSError:
             logger.warning("Large model not found, falling back to standard model")
             try:
                 self.nlp = spacy.load("en_core_web_sm")
+                self.nlp.max_length = self.max_text_length  # Set max length for small model too
                 logger.info("Using en_core_web_sm model")
             except OSError:
                 logger.info("Downloading standard spaCy model...")
                 import subprocess
                 subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])  # Use sys directly
                 self.nlp = spacy.load("en_core_web_sm")
+                self.nlp.max_length = self.max_text_length  # Set max length for downloaded model
                 
         self.mistral = MistralWrapper()
         
@@ -101,63 +106,232 @@ class KnowledgeGraphBuilder:
         self.embedding_cache[text] = embedding_array
         return embedding_array
 
-    def extract_entities_relations(self, text: str) -> List[Dict[str, Any]]:
-        """Extract entities and relations with enhanced granularity"""
-        doc = self.nlp(text)
+    def _chunk_text(self, text: str, chunk_size: int = 100000) -> List[str]:
+        """Split text into manageable chunks."""
+        # Split by paragraphs first
+        paragraphs = text.split('\n\n')
+        chunks = []
+        current_chunk = []
+        current_length = 0
         
-        messages = [{
-            "role": "user",
-            "content": f"""Extract entities and relationships from this text. Format as JSON with entities array containing text, category, weight, and relationships:
+        for para in paragraphs:
+            if current_length + len(para) > chunk_size:
+                if current_chunk:
+                    chunks.append('\n\n'.join(current_chunk))
+                current_chunk = [para]
+                current_length = len(para)
+            else:
+                current_chunk.append(para)
+                current_length += len(para)
+        
+        if current_chunk:
+            chunks.append('\n\n'.join(current_chunk))
+            
+        return chunks
 
-Text to analyze: {text}"""
-        }]
+    def _safe_chunk_text(self, text: str) -> List[str]:
+        """Safely chunk very large texts with intelligent boundary detection"""
+        if len(text) <= self.max_text_length:
+            return [text]
+            
+        chunk_size = self.max_text_length // 2  # Use half max length for safety
+        chunks = []
+        start = 0
         
-        response = self.mistral.generate_with_context(
-            messages=messages,
-            max_tokens=1000,
-            temperature=0.1
-        )
-        
-        try:
-            if response is None:
-                return []
-            enhanced_analysis = json.loads(response)
-        except json.JSONDecodeError:
-            enhanced_analysis = {"entities": []}
-        
-        # Combine Mistral's analysis with spaCy's extraction
-        entities_relations = []
+        while start < len(text):
+            end = start + chunk_size
+            
+            if end >= len(text):
+                chunks.append(text[start:])
+                break
+                
+            # Find the last complete sentence or paragraph boundary
+            possible_boundaries = [
+                text.rfind('\n\n', start, end),  # Paragraph
+                text.rfind('. ', start, end),     # Sentence
+                text.rfind('? ', start, end),     # Question
+                text.rfind('! ', start, end),     # Exclamation
+                text.rfind('\n', start, end),     # Line break
+            ]
+            
+            # Use the latest boundary found, or fall back to word boundary
+            boundary = max(b for b in possible_boundaries if b != -1)
+            if boundary == -1:
+                boundary = text.rfind(' ', start, end)
+            if boundary == -1:  # If no good boundary found
+                boundary = end - 1
+                
+            chunk = text[start:boundary + 1].strip()
+            if chunk:  # Only add non-empty chunks
+                chunks.append(chunk)
+            start = boundary + 1
+            
+        return chunks
+
+    def extract_entities_relations(self, text: str) -> List[Dict[str, Any]]:
+        """Extract entities and relations with enhanced granularity and chunking"""
+        # First break text into safe chunks
+        safe_chunks = self._safe_chunk_text(text)
+        all_entities = []
         seen_entities = set()
         
-        # Add entities from Mistral's analysis
-        for entity in enhanced_analysis.get("entities", []):
-            if entity["text"] not in seen_entities:
-                entities_relations.append({
-                    'text': entity["text"],
-                    'label': entity.get("category", "CONCEPT"),
-                    'weight': entity.get("weight", 0.5),
-                    'relationships': entity.get("relationships", [])
-                })
-                seen_entities.add(entity["text"])
+        for chunk in safe_chunks:
+            try:
+                # Further break down into processing chunks with overlap
+                process_size = 90000  # Smaller chunks for processing
+                overlap = 5000
+                
+                start = 0
+                while start < len(chunk):
+                    end = min(start + process_size, len(chunk))
+                    
+                    # Find appropriate boundary
+                    if end < len(chunk):
+                        # Look for sentence or paragraph boundary
+                        for boundary in ['\n\n', '. ', '? ', '! ', '\n', ' ']:
+                            pos = chunk.rfind(boundary, start, end)
+                            if pos != -1:
+                                end = pos + len(boundary)
+                                break
+                    
+                    process_chunk = chunk[start:end].strip()
+                    
+                    if process_chunk:
+                        messages = [{
+                            "role": "user",
+                            "content": f"""Extract entities and relationships from this text. Return only a JSON object with this exact structure:
+{{
+    "entities": [
+        {{
+            "text": "example entity",
+            "category": "CONCEPT|PERSON|ORGANIZATION|TECHNOLOGY|PROCESS|FEATURE",
+            "weight": 0.8,
+            "relationships": [
+                {{
+                    "type": "is_a|has|part_of|belongs_to|related_to",
+                    "target": "other entity",
+                    "weight": 0.7
+                }}
+            ]
+        }}
+    ]
+}}
+
+Example valid response:
+{{
+    "entities": [
+        {{
+            "text": "SAP S/4HANA",
+            "category": "TECHNOLOGY",
+            "weight": 0.9,
+            "relationships": [
+                {{
+                    "type": "has",
+                    "target": "Enterprise Management",
+                    "weight": 0.8
+                }}
+            ]
+        }},
+        {{
+            "text": "Enterprise Management",
+            "category": "CONCEPT",
+            "weight": 0.7,
+            "relationships": []
+        }}
+    ]
+}}
+
+Text to analyze: {process_chunk}"""
+                        }]
+                        
+                        try:
+                            response = self.mistral.generate_with_context(
+                                messages=messages,
+                                max_tokens=1000,
+                                temperature=0.1
+                            )
+                            
+                            # Initialize response_str and enhanced_analysis
+                            response_str = ""
+                            enhanced_analysis = {"entities": []}
+                            
+                            if response:
+                                # Attempt to extract just the JSON part if there's any extra text
+                                json_start = response.find('{')
+                                json_end = response.rfind('}') + 1
+                                if json_start >= 0 and json_end > json_start:
+                                    response_str = response[json_start:json_end]
+                                
+                                if response_str:
+                                    try:
+                                        enhanced_analysis = json.loads(response_str)
+                                    except json.JSONDecodeError:
+                                        logger.warning(f"Failed to parse JSON response for chunk. Response: {response_str[:100]}...")
+                            
+                            # Add entities from Mistral's analysis
+                            for entity in enhanced_analysis.get("entities", []):
+                                if entity["text"] not in seen_entities:
+                                    all_entities.append({
+                                        'text': entity["text"],
+                                        'label': entity.get("category", "CONCEPT"),
+                                        'weight': entity.get("weight", 0.5),
+                                        'relationships': entity.get("relationships", [])
+                                    })
+                                    seen_entities.add(entity["text"])
+                            
+                            # Get spaCy entities if needed
+                            if not enhanced_analysis.get("entities"):
+                                for ent in self.nlp(process_chunk).ents:
+                                    if ent.text not in seen_entities:
+                                        all_entities.append({
+                                            'text': ent.text,
+                                            'label': ent.label_,
+                                            'weight': 0.5,
+                                            'relationships': []
+                                        })
+                                        seen_entities.add(ent.text)
+                                        
+                        except Exception as e:
+                            logger.warning(f"Error processing response: {str(e)}")
+                    
+                    # Move start position with overlap
+                    start = end - overlap
+                    if start < end - overlap // 2:  # Prevent tiny chunks at the end
+                        start = end
+                        
+            except Exception as e:
+                logger.error(f"Error processing chunk: {str(e)}")
+                continue
         
-        # Add additional entities from spaCy
-        for ent in doc.ents:
-            if ent.text not in seen_entities:
-                entities_relations.append({
-                    'text': ent.text,
-                    'label': ent.label_,
-                    'weight': 0.5,
-                    'relationships': []
-                })
-                seen_entities.add(ent.text)
-        
-        return entities_relations
+        return all_entities
 
     def extract_hierarchical_relations(self, text: str) -> List[Dict[str, Any]]:
         """Extract hierarchical relationships between entities"""
         messages = [{
             "role": "user",
-            "content": f"""Analyze this text and identify hierarchical relationships. List concepts with their parents, children, and related concepts:
+            "content": f"""Analyze this text and identify hierarchical relationships. Return only a JSON object with this exact structure:
+{{
+    "concepts": [
+        {{
+            "text": "example concept",
+            "parents": ["parent1", "parent2"],
+            "children": ["child1", "child2"],
+            "related": ["related1", "related2"]
+        }}
+    ]
+}}
+
+Example valid response:
+{{
+    "concepts": [
+        {{
+            "text": "Enterprise Management",
+            "parents": ["SAP S/4HANA"],
+            "children": ["Finance", "Logistics"],
+            "related": ["Business Process"]
+        }}
+    ]
+}}
 
 Text to analyze: {text}"""
         }]
@@ -168,12 +342,31 @@ Text to analyze: {text}"""
                 max_tokens=1500,
                 temperature=0.1
             )
-            if response is None:
+            
+            # Initialize response_str and concepts
+            response_str = ""
+            concepts_data = {"concepts": []}
+            
+            if response:
+                # Attempt to extract just the JSON part if there's any extra text
+                json_start = response.find('{')
+                json_end = response.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    response_str = response[json_start:json_end]
+            
+                if response_str:
+                    try:
+                        concepts_data = json.loads(response_str)
+                    except json.JSONDecodeError:
+                        logger.warning(f"Failed to parse JSON response: {response_str[:100]}...")
+                        return []
+            
+            if not isinstance(concepts_data, dict) or "concepts" not in concepts_data:
+                logger.warning("Invalid JSON structure received")
                 return []
-            concepts = json.loads(response)
-            return concepts.get("concepts", [])
-        except json.JSONDecodeError:
-            return []
+            
+            return concepts_data["concepts"]
+            
         except Exception as e:
             logger.error(f"Error extracting hierarchical relations: {e}")
             return []
@@ -391,143 +584,163 @@ Content: {sample_content[:500]}"""
                 # Store embeddings separately or convert to list
                 serializable_data[key] = self._make_json_serializable(value)
             else:
+                # Ensure type field is always lowercase for consistent comparison
+                if key == 'type':
+                    value = str(value).lower()
                 serializable_data[key] = self._make_json_serializable(value)
+        
+        # Ensure type is set if missing
+        if 'type' not in serializable_data:
+            serializable_data['type'] = 'concept'  # Default type
+            
         return serializable_data
 
-    def build_graph(self):
-        """Build enhanced knowledge graph with more granular relationships"""
+    def build_graph(self) -> None:
+        """Build the knowledge graph from processed files."""
         # Clear existing graph data
         self.graph = Graph()
         self.nx_graph = nx.DiGraph()
         self.embedding_cache = {}  # Clear cache to ensure consistent embeddings
         
-        # Collect and process all texts
+        # Track all entities for relationship building
+        all_entities = {}  # Dict to store all entities by text
+        
+        # Collect all texts first for topic identification
         all_texts = []
-        text_sources = {}  # Map text to source file
+        text_sources = {}
         
         for filename in os.listdir(self.processed_files_dir):
-            if filename.endswith('.json'):
-                with open(os.path.join(self.processed_files_dir, filename), 'r') as f:
+            if not filename.endswith('.json'):
+                continue
+                
+            with open(os.path.join(self.processed_files_dir, filename), 'r') as f:
+                try:
                     data = json.load(f)
                     content = str(data['data']['content'])
-                    timestamp = data.get('metadata', {}).get('timestamp') or data.get('timestamp') or datetime.now().isoformat()
-                    source = data.get('metadata', {}).get('source') or filename
-                    confidence = data.get('metadata', {}).get('confidence', 0.8)
-                    
                     all_texts.append(content)
-                    text_sources[content] = {
-                        'filename': filename,
-                        'timestamp': timestamp,
-                        'source': source,
-                        'confidence': confidence
-                    }
-
-        # Get topics and embeddings
-        topics, doc_embeddings = self.identify_topics(all_texts)
+                    text_sources[content] = filename
+                except Exception as e:
+                    logger.error(f"Error reading file {filename}: {str(e)}")
+                    continue
         
-        # Add topic nodes with enhanced properties
-        for topic, terms in topics.items():
+        # First identify topics
+        topics, _ = self.identify_topics(all_texts)
+        
+        # Add topic nodes
+        for topic_name, terms in topics.items():
             node_data = {
                 'type': 'topic',
                 'terms': terms,
+                'label': topic_name,
+                'weight': 1.0,
+                'color': '#ff7f0e',  # Orange for topics
                 'size': 30,
-                'color': '#ff7f0e',
-                'embedding': self.get_embedding(topic)
+                'embedding': self.get_embedding(topic_name)
             }
-            self.nx_graph.add_node(topic, **self._prepare_node_data(node_data))
+            self.nx_graph.add_node(topic_name, **self._prepare_node_data(node_data))
+            logger.debug(f"Added topic node: {topic_name}")
+            all_entities[topic_name] = node_data
         
-        # Process each document
-        similarity_threshold = 0.3  # Changed from 0.5
-        for idx, content in enumerate(all_texts):
-            source_info = text_sources[content]
-            
-            # Extract hierarchical relationships with enhanced detail
-            hierarchy = self.extract_hierarchical_relations(content)
-            
-            # Process each concept
-            for concept in hierarchy:
-                # Add concept node with enhanced metadata
-                node_data = {
-                    'type': 'concept',
-                    'concept_type': concept['type'],
-                    'properties': concept['properties'],
-                    'actions': concept['actions'],
-                    'importance': concept.get('importance', 0.5),
-                    'size': 25 * concept.get('importance', 0.5),
-                    'color': '#1f77b4',
-                    'embedding': self.get_embedding(concept['name']),
-                    'timestamp': source_info['timestamp'],
-                    'source': source_info['source'],
-                    'confidence': source_info['confidence'],
-                    'version': '1.0'
-                }
-                self.nx_graph.add_node(concept['name'], **self._prepare_node_data(node_data))
+        # First pass: Create all entity nodes
+        for content, filename in text_sources.items():
+            try:
+                entities = self.extract_entities_relations(content)
                 
-                # Add bidirectional relationships with hierarchy
-                for rel_type, targets in [
-                    ('is_a', concept['parents']),
-                    ('has', concept['children']),
-                    ('related_to', concept['related'])
-                ]:
-                    hierarchy_weight = self.relationship_hierarchy.get(rel_type, 0.5)
-                    for target in targets:
-                        # Forward relationship
-                        edge_data = {
-                            'type': rel_type,
-                            'weight': hierarchy_weight * source_info['confidence'],
-                            'timestamp': source_info['timestamp'],
-                            'source': source_info['source'],
-                            'confidence': source_info['confidence'],
-                            'bidirectional': True
-                        }
-                        self.nx_graph.add_edge(concept['name'], target, 
-                                             **self._prepare_node_data(edge_data))
-                        
-                        # Reverse relationship
-                        reverse_rel = {
-                            'is_a': 'has_instance',
-                            'has': 'belongs_to',
-                            'related_to': 'related_to'
-                        }.get(rel_type, f'reverse_{rel_type}')
-                        
-                        edge_data = {
-                            'type': reverse_rel,
-                            'weight': hierarchy_weight * source_info['confidence'],
-                            'timestamp': source_info['timestamp'],
-                            'source': source_info['source'],
-                            'confidence': source_info['confidence'],
-                            'bidirectional': True
-                        }
-                        self.nx_graph.add_edge(target, concept['name'],
-                                             **self._prepare_node_data(edge_data))
-
-            # Update topic connections with timestamps and confidence
-            doc_embedding = np.array(doc_embeddings[idx]).reshape(1, -1)
-            for topic in topics:
-                topic_embedding = np.array(self.nx_graph.nodes[topic]['embedding'])
-                if len(topic_embedding.shape) == 1:
-                    topic_embedding = topic_embedding.reshape(1, -1)
-                similarity = float(cosine_similarity(doc_embedding, topic_embedding)[0, 0])
-                if similarity > similarity_threshold:
-                    edge_data = {
-                        'type': 'belongs_to',
-                        'weight': similarity,
-                        'timestamp': source_info['timestamp'],
-                        'source': source_info['source'],
-                        'confidence': source_info['confidence']
+                # Add concept nodes first
+                for entity in entities:
+                    node_data = {
+                        'type': 'concept',
+                        'label': entity['label'],
+                        'weight': entity.get('weight', 0.5),
+                        'color': '#1f77b4',  # Blue for concepts
+                        'size': 25,
+                        'embedding': self.get_embedding(entity['text']),
+                        'source_file': filename
                     }
-                    self.nx_graph.add_edge(source_info['filename'], topic,
-                                         **self._prepare_node_data(edge_data))
-
+                    
+                    self.nx_graph.add_node(
+                        entity['text'],
+                        **self._prepare_node_data(node_data)
+                    )
+                    all_entities[entity['text']] = node_data
+                    logger.debug(f"Added concept node: {entity['text']}")
+            except Exception as e:
+                logger.error(f"Error in first pass for {filename}: {str(e)}")
+                continue
+        
+        # Second pass: Create relationships
+        for content, filename in text_sources.items():
+            try:
+                entities = self.extract_entities_relations(content)
+                
+                for entity in entities:
+                    source_text = entity['text']
+                    
+                    # Add relationships from entity analysis
+                    for rel in entity.get('relationships', []):
+                        target_text = rel['target']
+                        
+                        # Only create edge if both nodes exist
+                        if source_text in all_entities and target_text in all_entities:
+                            edge_data = {
+                                'type': rel['type'],
+                                'weight': rel.get('weight', 0.5),
+                                'source_file': filename,
+                                'color': '#2ecc71'  # Green for entity relationships
+                            }
+                            self.nx_graph.add_edge(
+                                source_text,
+                                target_text,
+                                **self._prepare_node_data(edge_data)
+                            )
+                            logger.debug(f"Added relationship: {source_text} -{rel['type']}-> {target_text}")
+                    
+                    # Connect to relevant topics with higher threshold
+                    entity_embedding = self.get_embedding(source_text)
+                    for topic_name, topic_data in all_entities.items():
+                        if topic_data.get('type') == 'topic':
+                            topic_embedding = topic_data['embedding']
+                            similarity = float(self.cosine_similarity(
+                                entity_embedding.reshape(1, -1),
+                                topic_embedding.reshape(1, -1)
+                            ))
+                            
+                            if similarity > 0.4:  # Increased threshold for better precision
+                                edge_data = {
+                                    'type': 'belongs_to',
+                                    'weight': similarity,
+                                    'source_file': filename,
+                                    'color': '#e74c3c'  # Red for topic relationships
+                                }
+                                self.nx_graph.add_edge(
+                                    source_text,
+                                    topic_name,
+                                    **self._prepare_node_data(edge_data)
+                                )
+                                logger.debug(f"Connected to topic: {source_text} -> {topic_name}")
+                            
+            except Exception as e:
+                logger.error(f"Error in second pass for {filename}: {str(e)}")
+                continue
+        
         # Save embeddings cache
         self._save_cache()
+        
+        # Log final counts
+        nodes = list(self.nx_graph.nodes(data=True))
+        edges = list(self.nx_graph.edges(data=True))
+        logger.info(f"Graph built with {len(nodes)} nodes and {len(edges)} edges")
+        logger.info(f"Topics: {sum(1 for _, data in nodes if data.get('type') == 'topic')}")
+        logger.info(f"Concepts: {sum(1 for _, data in nodes if data.get('type') == 'concept')}")
+        logger.info(f"Relationships: {len(edges)}")
 
-    def visualize_graph(self, output_file: str = "knowledge_graph.html"):
-        """Generate enhanced interactive visualization of the knowledge graph"""
+    def visualize_graph(self, output_file: str = "knowledge_graph.html") -> None:
+        """Generate and save an interactive visualization of the knowledge graph."""
+        # Initialize network
         nt = net.Network(height="900px", width="100%", bgcolor="#ffffff")
         nt.toggle_physics(True)
-        
-        # Add nodes with enhanced semantic information
+
+        # Add nodes and edges as before
         for node, data in self.nx_graph.nodes(data=True):
             size = data.get('size', 20)
             color = data.get('color', '#1f77b4')
@@ -554,8 +767,7 @@ Content: {sample_content[:500]}"""
                        node_type=node_type,
                        weight=data.get('weight', 0.5),
                        metadata=data)
-        
-        # Add edges with semantic relationship information
+
         for source, target, data in self.nx_graph.edges(data=True):
             width = data.get('weight', 1) * 5
             relation_type = data.get('type', 'related')
@@ -572,8 +784,8 @@ Content: {sample_content[:500]}"""
                        relation_type=relation_type,
                        weight=data.get('weight', 1),
                        metadata=data)
-        
-        # Configure physics for better visualization
+
+        # Set physics options as before
         nt.set_options("""
         {
           "physics": {
@@ -607,8 +819,46 @@ Content: {sample_content[:500]}"""
         }
         """)
         
+        # Generate the graph HTML content
+        html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Knowledge Graph Visualization</title>
+                <link href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.css" rel="stylesheet" type="text/css">
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
+                <style type="text/css">
+                    #mynetwork {{
+                        width: 100%;
+                        height: 900px;
+                        background-color: #ffffff;
+                        border: 1px solid lightgray;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div id="mynetwork"></div>
+                <script type="text/javascript">
+                    function drawGraph() {{
+                        var container = document.getElementById('mynetwork');
+                        var nodes = new vis.DataSet({json.dumps(list(nt.nodes))});
+                        var edges = new vis.DataSet({json.dumps(list(nt.edges))});
+                        var data = {{nodes: nodes, edges: edges}};
+                        var options = {nt.options};
+                        var network = new vis.Network(container, data, options);
+                    }}
+                    window.addEventListener('load', function() {{ drawGraph(); }});
+                </script>
+            </body>
+            </html>
+        """
+        
+        # Save the HTML file
         output_path = os.path.join(self.output_dir, output_file)
-        nt.save_graph(output_path)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(html_content)
+            
         logger.info(f"Enhanced graph visualization saved to {output_path}")
 
     def query_graph(self, query: str) -> List[Dict[str, Any]]:
@@ -678,13 +928,25 @@ Content: {sample_content[:500]}"""
 
     def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         """Calculate cosine similarity between two vectors or sets of vectors"""
+        # Convert inputs to numpy arrays if they aren't already
+        if isinstance(a, list):
+            a = np.array(a)
+        if isinstance(b, list):
+            b = np.array(b)
+            
+        # Ensure we're working with numpy arrays
+        a = np.asarray(a, dtype=np.float32)
+        b = np.asarray(b, dtype=np.float32)
+        
         # Ensure inputs are 2D
         if a.ndim == 1:
             a = a.reshape(1, -1)
         if b.ndim == 1:
             b = b.reshape(1, -1)
             
+        # Avoid division by zero
+        norm_a = np.maximum(np.linalg.norm(a, axis=1, keepdims=True), 1e-10)
+        norm_b = np.maximum(np.linalg.norm(b, axis=1, keepdims=True), 1e-10)
+        
         # Calculate cosine similarity
-        norm_a = np.linalg.norm(a, axis=1).reshape(-1, 1)
-        norm_b = np.linalg.norm(b, axis=1).reshape(-1, 1)
         return np.dot(a / norm_a, (b / norm_b).T)

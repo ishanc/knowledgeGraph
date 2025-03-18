@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
-from typing import Optional
 import logging
 from mistral_wrapper import MistralWrapper
+import time
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 # Add logger
 logger = logging.getLogger(__name__)
@@ -49,6 +50,11 @@ class ChatSession:
             return ""
         return "\n".join([f"{item['type']}: {item['content']}" for item in context_items])
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        reraise=True
+    )
     def generate_response(self, user_message: str) -> str:
         try:
             # Get relevant context from knowledge graph
@@ -60,7 +66,7 @@ class ChatSession:
                     "role": "system",
                     "content": f"""You are a knowledgeable assistant with access to a knowledge graph.
                     Base your responses on the following context and previous conversation.
-                    If you're not confident about something, acknowledge your uncertainty.
+                    If you're not confident about something, acknowledge your uncertainty. Do not use any general knowledge, common sense or external information. Only use the provided context and history to generate responses.
                     
                     Relevant Context:
                     {context}"""
@@ -80,13 +86,28 @@ class ChatSession:
                 "content": user_message
             })
             
-            # Generate response using new interface
-            response = self.mistral.generate_with_context(
-                messages=messages,
-                max_tokens=500,
-                temperature=0.7
-            )
-            return response if response is not None else "I apologize, but I was unable to generate a response."
+            # Add retry handling
+            max_retries = 3
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    response = self.mistral.generate_with_context(
+                        messages=messages,
+                        max_tokens=500,
+                        temperature=0.7
+                    )
+                    if response:
+                        return response
+                    retry_count += 1
+                    time.sleep(2 ** retry_count)  # Exponential backoff
+                except Exception as e:
+                    logger.debug(f"Attempt {retry_count + 1} failed: {str(e)}")
+                    retry_count += 1
+                    if retry_count == max_retries:
+                        raise
+                    time.sleep(2 ** retry_count)
+                    
+            return "I apologize, but I was unable to generate a response after multiple attempts."
             
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")

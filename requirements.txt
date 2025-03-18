@@ -1,5 +1,5 @@
-numpy==1.23.5
-pandas==1.5.3
+numpy>=1.25.0,<1.26.0  # Pin to a stable version
+pandas>=2.0.0,<2.1.0  # Updated to match numpy compatibility
 python-docx>=0.8.11
 PyPDF2>=3.0.0
 Pillow>=9.0.0
@@ -20,4 +20,6 @@ huggingface_hub>=0.17.0
 # mistralai==0.0.10  # Remove or comment out mistralai package
 scikit-learn>=1.0.0
 sentence-transformers>=2.2.0
-joblib>=1.1.0
+tenacity>=8.2.0  # Updated version for better compatibility
+urllib3>=2.0.0
+requests>=2.25.0

@@ -9,6 +9,10 @@ import logging
 from json_validator import validate_json_file, fix_json_content
 from knowledge_graph_builder import KnowledgeGraphBuilder
 from chat import ChatManager  # Updated import
+import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+from llm_utils import retry_llm_call, FORMAT_INSTRUCTIONS, EXAMPLE_RESPONSE
 
 # Load environment variables
 load_dotenv()
@@ -17,9 +21,57 @@ load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Configure tokenizers parallelism
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 # Verify HuggingFace token
 if not os.getenv('HUGGINGFACE_TOKEN'):
     logger.warning("HUGGINGFACE_TOKEN not found in environment variables")
+
+# Configure retry strategy for HuggingFace API calls
+retry_strategy = Retry(
+    total=5,  # Increased from 3
+    backoff_factor=0.5,  # Reduced from 1
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["HEAD", "GET", "OPTIONS", "POST"]
+)
+
+# Configure connection pooling
+adapter = HTTPAdapter(
+    max_retries=retry_strategy,
+    pool_connections=10,  # Increased connection pool
+    pool_maxsize=10,
+    pool_block=False
+)
+
+# Configure session with keep-alive
+http = requests.Session()
+http.mount("https://", adapter)
+http.mount("http://", adapter)
+http.headers.update({
+    'Connection': 'keep-alive',
+    'Keep-Alive': 'timeout=60, max=1000'
+})
+
+def call_huggingface_api(endpoint, data):
+    def _make_request():
+        response = http.post(
+            endpoint, 
+            json={
+                **data,
+                "format_instructions": FORMAT_INSTRUCTIONS,
+                "example_response": EXAMPLE_RESPONSE
+            },
+            headers={
+                "Authorization": f"Bearer {os.getenv('HUGGINGFACE_TOKEN')}",
+                'Connection': 'keep-alive'
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        return response.text
+    
+    return retry_llm_call(_make_request)
 
 # Create templates directory if it doesn't exist
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
@@ -246,18 +298,154 @@ def chat_message():
     if not session:
         return jsonify({'error': 'Invalid or expired session'}), 404
     
-    # Add user message to history
-    session.add_message("user", message)
+    try:
+        # Add user message to history
+        session.add_message("user", message)
+        
+        # Generate response with error handling
+        response = session.generate_response(message)
+        if not response:
+            raise ValueError("Failed to generate response")
+            
+        # Add assistant response to history
+        session.add_message("assistant", response)
+        
+        return jsonify({
+            'response': response,
+            'session_id': session_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in chat message: {str(e)}")
+        return jsonify({'error': 'Failed to process message'}), 500
+
+# Add new routes for graph editing
+@app.route('/graph/editor')
+def graph_editor():
+    return render_template('graph_editor.html')
+
+@app.route('/graph/data')
+def get_graph_data():
+    nodes_data = []
+    edges_data = []
     
-    # Generate response
-    response = session.generate_response(message)
+    for node, data in kg_builder.nx_graph.nodes(data=True):
+        nodes_data.append({
+            'id': node,
+            'label': node,
+            'color': data.get('color', '#1f77b4'),
+            'size': data.get('size', 20)
+        })
     
-    # Add assistant response to history
-    session.add_message("assistant", response)
+    for source, target, data in kg_builder.nx_graph.edges(data=True):
+        edges_data.append({
+            'id': f"{source}-{target}",
+            'from': source,
+            'to': target,
+            'label': data.get('type', 'related'),
+            'width': data.get('weight', 1) * 2
+        })
     
     return jsonify({
-        'response': response,
-        'session_id': session_id
+        'nodes': nodes_data,
+        'edges': edges_data
+    })
+
+@app.route('/graph/node', methods=['POST'])
+def add_node():
+    data = request.get_json()
+    try:
+        node_data = {
+            'type': data.get('type', 'concept'),
+            'label': data['label'],
+            'timestamp': datetime.now().isoformat(),
+            'source': 'user_edit',
+            'confidence': 1.0
+        }
+        kg_builder.nx_graph.add_node(data['label'], **kg_builder._prepare_node_data(node_data))
+        kg_builder.visualize_graph()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/graph/node/<node_id>', methods=['PUT', 'DELETE'])
+def modify_node(node_id):
+    try:
+        if request.method == 'DELETE':
+            kg_builder.nx_graph.remove_node(node_id)
+        else:
+            data = request.get_json()
+            kg_builder.nx_graph.nodes[node_id].update(kg_builder._prepare_node_data(data))
+        
+        kg_builder.visualize_graph()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/graph/relationship', methods=['POST'])
+def add_relationship():
+    data = request.get_json()
+    try:
+        edge_data = {
+            'type': data['type'],
+            'weight': 1.0,
+            'timestamp': datetime.now().isoformat(),
+            'source': 'user_edit',
+            'confidence': 1.0
+        }
+        kg_builder.nx_graph.add_edge(
+            data['source'], 
+            data['target'], 
+            **kg_builder._prepare_node_data(edge_data)
+        )
+        kg_builder.visualize_graph()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/graph/stats')
+def get_graph_stats():
+    try:
+        nodes = list(kg_builder.nx_graph.nodes(data=True))  # Convert to list for accurate counting
+        edges = kg_builder.nx_graph.edges(data=True)
+        
+        # Debug logging to inspect node types
+        for node, data in nodes:
+            logger.debug(f"Node {node} has type: {data.get('type', 'unknown')}")
+            
+        stats = {
+            'nodes': len(nodes),
+            'edges': len(edges),
+            'topics': sum(1 for _, data in nodes if str(data.get('type', '')).lower() == 'topic'),
+            'concepts': sum(1 for _, data in nodes if str(data.get('type', '')).lower() in ['concept', 'entity'])
+        }
+        
+        logger.debug(f"Graph stats: {stats}")
+        return jsonify(stats)
+    except Exception as e:
+        logger.error(f"Error getting graph stats: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/huggingface', methods=['POST'])
+def huggingface_endpoint():
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    endpoint = "https://api-inference.huggingface.co/models/your-model"
+    result = call_huggingface_api(endpoint, data)
+    
+    if result is None:
+        return jsonify({'error': 'Failed to call HuggingFace API'}), 500
+    
+    return jsonify(result)
+
+# Update the prompt endpoint with more detailed examples
+@app.route('/huggingface/prompt', methods=['GET'])
+def huggingface_prompt():
+    return jsonify({
+        "format_instructions": FORMAT_INSTRUCTIONS,
+        "example_response": EXAMPLE_RESPONSE
     })
 
 if __name__ == '__main__':

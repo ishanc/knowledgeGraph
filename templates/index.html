@@ -3,48 +3,79 @@
 <head>
     <title>Document Processor</title>
     <style>
+        :root {
+            --pastel-blue: #a8d8ea;
+            --pastel-pink: #f3d1dc;
+            --pastel-green: #c5e3d5;
+            --text-color: #444;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--pastel-blue) 0%, var(--pastel-pink) 100%);
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+
+        .main-container {
             max-width: 800px;
             margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             padding: 20px;
         }
+
+        h1 {
+            text-align: center;
+            color: var(--text-color);
+            margin-bottom: 30px;
+        }
+
         .upload-container {
-            border: 2px dashed #ccc;
-            padding: 20px;
+            border: 2px dashed var(--pastel-blue);
+            padding: 30px;
             text-align: center;
             margin: 20px 0;
-            border-radius: 5px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
         }
+
         .upload-container.dragover {
-            background-color: #e1f5fe;
-            border-color: #2196f3;
+            background-color: rgba(168, 216, 234, 0.2);
+            border-color: var(--pastel-green);
         }
-        #uploadFileList {
-            margin: 20px 0;
-        }
+
         .file-item {
             padding: 10px;
             margin: 5px 0;
             background-color: #f5f5f5;
             border-radius: 3px;
         }
+
         .results {
             margin-top: 20px;
         }
+
         .result-item {
-            padding: 10px;
-            margin: 5px 0;
-            border-left: 4px solid;
+            animation: fadeIn 0.3s ease;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: white;
         }
-        .success { border-color: #4caf50; }
-        .error { border-color: #f44336; }
+
+        .success { border-left: 4px solid var(--pastel-green); }
+        .error { border-left: 4px solid var(--pastel-pink); }
 
         .files-container {
             margin-top: 30px;
-            border: 1px solid #ddd;
+            border: 1px solid rgba(0, 0, 0, 0.1);
             padding: 20px;
-            border-radius: 5px;
+            border-radius: 10px;
+            background: white;
         }
 
         .file-list {
@@ -54,109 +85,228 @@
 
         .file-list-item {
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
+            align-items: flex-start;
+            padding: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            gap: 16px;
+        }
+
+        .file-list-item > div:first-child {
+            flex: 1;
+            min-width: 200px;
+            word-break: break-word;
+            padding-right: 16px;
+        }
+
+        .file-list-item > div:last-child {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+            min-width: 280px;
+        }
+
+        button {
+            transition: all 0.3s ease;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #fff;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 4px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            opacity: 0.9;
         }
 
         .delete-btn {
-            background: #ff4444;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-        }
-
-        .delete-btn:hover {
-            background: #cc0000;
+            background-color: #ff4444;
         }
 
         .download-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 5px;
+            background-color: #4CAF50;
         }
-        .download-btn:hover {
-            background: #45a049;
-        }
+
         .refresh-btn {
-            background: #2196F3;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-bottom: 10px;
+            background-color: #2196F3;
         }
-        .refresh-btn:hover {
-            background: #1976D2;
+
+        .rebuild-btn {
+            background-color: #2196F3;  /* Changed to match view button */
         }
+
+        .rebuild-btn:hover {
+            background-color: #1976D2;  /* Changed hover state to match view button */
+        }
+
+        .view-btn {
+            background-color: #2196F3;
+        }
+
+        /* Style for both Select Files and Process Files buttons */
+        .upload-container button,
+        #uploadButton {
+            background-color: #6c5ce7;
+        }
+        
+        .upload-container button:hover,
+        #uploadButton:hover {
+            background-color: #5b4bc4;
+        }
+
         .timestamp {
             font-size: 0.8em;
             color: #666;
             margin-top: 4px;
         }
         .validation-status {
-            font-size: 0.8em;
-            padding: 2px 6px;
-            border-radius: 3px;
+            font-size: 0.9em;
+            padding: 4px 8px;
+            border-radius: 15px;
+        }
+        .valid {
+            background: var(--pastel-green);
+            color: #2e7d32;
+        }
+        .invalid {
+            background: var(--pastel-pink);
+            color: #c62828;
+        }
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+        .progress {
+            height: 10px;
+            background-color: rgba(168, 216, 234, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--pastel-blue), var(--pastel-pink));
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+        .stats-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s ease;
+        }
+        .stat-item:hover {
+            transform: translateY(-2px);
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--pastel-blue);
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-color);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .rebuild-loader {
+            display: none;
             margin-left: 8px;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
         }
-        .valid { background: #e8f5e9; color: #2e7d32; }
-        .invalid { background: #ffebee; color: #c62828; }
-        .rebuild-btn {
-            background: #4A148C;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 10px;
+
+        @keyframes spin {
+            to {transform: rotate(360deg);}
         }
-        .rebuild-btn:hover {
-            background: #311B92;
-        }
-        .view-btn {
-            background: #1565C0;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 3px;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        .view-btn:hover {
-            background: #0D47A1;
+
+        .button-with-loader {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
     </style>
 </head>
 <body>
-    <h1>Document Processor</h1>
-    <div class="upload-container" id="dropZone">
-        <p>Drag and drop files here or</p>
-        <input type="file" id="fileInput" multiple style="display: none">
-        <button onclick="document.getElementById('fileInput').click()">Select Files</button>
-    </div>
-    <div id="uploadFileList"></div>
-    <button id="uploadButton" style="display: none">Process Files</button>
-    <div id="results" class="results"></div>
-
-    <div class="files-container">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Processed Files</h2>
-            <div>
-                <button onclick="rebuildGraph()" class="rebuild-btn">Rebuild Knowledge Graph</button>
-                <button onclick="viewGraph()" class="view-btn">View Knowledge Graph</button>
-                <button onclick="loadProcessedFiles()" class="refresh-btn">Refresh List</button>
+    <div class="main-container">
+        <h1>Document Processor</h1>
+        <div class="upload-container" id="dropZone">
+            <p>Drag and drop files here or</p>
+            <input type="file" id="fileInput" multiple style="display: none">
+            <button onclick="document.getElementById('fileInput').click()">Select Files</button>
+        </div>
+        <div id="uploadFileList"></div>
+        <button id="uploadButton" style="display: none">Process Files</button>
+        <div id="results" class="results"></div>
+        
+        <div class="progress-container" id="progressContainer">
+            <h4>Processing Progress</h4>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar" role="progressbar"></div>
             </div>
         </div>
-        <ul id="processedFileList" class="file-list"></ul>
+
+        <div class="stats-container" id="statsContainer">
+            <div class="stat-item">
+                <div class="stat-value" id="nodeCount">0</div>
+                <div class="stat-label">Total Nodes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="edgeCount">0</div>
+                <div class="stat-label">Total Relationships</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="topicCount">0</div>
+                <div class="stat-label">Topics</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="conceptCount">0</div>
+                <div class="stat-label">Concepts</div>
+            </div>
+        </div>
+
+        <div class="files-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Processed Files</h2>
+                <div>
+                    <button onclick="rebuildGraph()" class="rebuild-btn button-with-loader">
+                        Rebuild Knowledge Graph
+                        <div class="rebuild-loader" id="rebuildLoader"></div>
+                    </button>
+                    <button onclick="viewGraph()" class="view-btn">View Knowledge Graph</button>
+                    <button onclick="loadProcessedFiles()" class="refresh-btn">Refresh List</button>
+                </div>
+            </div>
+            <ul id="processedFileList" class="file-list"></ul>
+        </div>
     </div>
 
     <script>
@@ -212,15 +362,30 @@
                 formData.append('files[]', file);
             });
 
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            progressContainer.style.display = 'block';
+            
             try {
                 const response = await fetch('/upload', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        progressBar.style.width = percentCompleted + '%';
+                        progressBar.textContent = percentCompleted + '%';
+                    }
                 });
                 const data = await response.json();
                 displayResults(data);
+                await updateStats();
             } catch (error) {
                 console.error('Upload failed:', error);
+            } finally {
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                    progressBar.style.width = '0%';
+                }, 1000);
             }
         });
 
@@ -326,12 +491,19 @@
         }
 
         async function rebuildGraph() {
+            const loader = document.getElementById('rebuildLoader');
+            const rebuildBtn = loader.parentElement;
             try {
+                loader.style.display = 'block';
+                rebuildBtn.disabled = true;
+                
                 const response = await fetch('/graph/build', {
                     method: 'POST'
                 });
                 const result = await response.json();
+                
                 if (result.status === 'success') {
+                    await updateStats();  // Update stats after successful rebuild
                     alert('Knowledge graph rebuilt successfully');
                     viewGraph();
                 } else {
@@ -340,6 +512,9 @@
             } catch (error) {
                 console.error('Error rebuilding graph:', error);
                 alert('Error rebuilding graph');
+            } finally {
+                loader.style.display = 'none';
+                rebuildBtn.disabled = false;
             }
         }
 
@@ -347,8 +522,30 @@
             window.open('/graph/view', '_blank');
         }
 
-        // Load processed files when page loads
-        document.addEventListener('DOMContentLoaded', loadProcessedFiles);
+        async function updateStats() {
+            try {
+                const response = await fetch('/graph/stats');
+                const stats = await response.json();
+                
+                document.getElementById('nodeCount').textContent = stats.nodes || 0;
+                document.getElementById('edgeCount').textContent = stats.edges || 0;
+                document.getElementById('topicCount').textContent = stats.topics || 0;
+                document.getElementById('conceptCount').textContent = stats.concepts || 0;
+            } catch (error) {
+                console.error('Error updating stats:', error);
+            }
+        }
+
+        // Update stats when page loads and ensure async operation completes
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Promise.all([
+                loadProcessedFiles(),
+                updateStats()
+            ]);
+        });
+
+        // Remove duplicate event listener
+        // document.addEventListener('DOMContentLoaded', loadProcessedFiles);
     </script>
 </body>
 </html>

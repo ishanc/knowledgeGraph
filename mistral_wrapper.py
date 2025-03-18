@@ -3,6 +3,9 @@ from typing import List, Dict, Optional, Union
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 import logging
+from requests.adapters import HTTPAdapter
+import requests
+from urllib3.util.retry import Retry
 
 logger = logging.getLogger(__name__)
 
@@ -12,10 +15,24 @@ class MistralWrapper:
         api_key = os.getenv("HUGGINGFACE_TOKEN")
         if not api_key:
             raise ValueError("HUGGINGFACE_TOKEN environment variable not set")
+        
+        # Configure retry strategy
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+        )
+        
+        # Create session with retry strategy
+        self.session = requests.Session()
+        adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=10)
+        self.session.mount("https://", adapter)
             
+        # Initialize client without session parameter
         self.client = InferenceClient(
-            provider="hf-inference",
-            api_key=api_key,
+            model="mistralai/Mistral-Nemo-Instruct-2407",
+            token=api_key,
+            headers={"User-Agent": "KnowledgeGraph/1.0"}
         )
         self.model = "mistralai/Mistral-Nemo-Instruct-2407"
 
