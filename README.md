@@ -1,82 +1,242 @@
 # Knowledge Graph Document Parser
 
-This project provides utilities to parse various document formats (PDF, DOC, DOCX, TXT, RTF, CSV, XLS, XLSX, and images) and convert them into JSON format for further processing.
+This project provides utilities to parse various document formats and create an interactive knowledge graph with AI-powered chat capabilities.
 
 ## Prerequisites
 
-- Python 3.6 or higher
-- For macOS users: Homebrew
-- For Linux users: apt package manager
-- Sufficient permissions to install system packages
+- Python 3.8+
+- Flask
+- NumPy
+- NetworkX
+- PyYAML
+- HuggingFace API token
+- Mistral API access
+- requests
 
 ## Installation
 
-1. Clone this repository:
+1. Clone the repository
+2. Install dependencies:
 ```bash
-git clone <repository-url>
-cd knowledgeGraph
+pip install -r requirements.txt
 ```
-
-2. Run the installation script:
+3. Set up environment variables:
 ```bash
-chmod +x install_dependencies.sh
-./install_dependencies.sh
+HUGGINGFACE_TOKEN=your_token_here
 ```
 
-This will:
-- Create a Python virtual environment
-- Install all required Python packages
-- Install Tesseract OCR system dependency
+## Features
 
-## Supported File Types
+### Document Processing
+- Supports multiple file formats:
+  - PDF, DOC, DOCX, TXT, RTF
+  - CSV, XLS, XLSX
+  - Images (with OCR)
+- Batch upload capability
+- JSON output validation
+- Progress tracking
 
-- Text files (.txt, .rtf)
-- Spreadsheets (.csv, .xls, .xlsx)
-- Documents (.doc, .docx)
-- PDFs (.pdf)
-- Images (.png, .jpg, .jpeg)
+### Knowledge Graph
+- Interactive visualization
+- Node and relationship management
+- Graph statistics
+- Custom graph queries
+- Graph rebuilding
+- Visual editor
 
-## Usage
+### AI Features
+- AI-powered chat interface
+- Context-aware responses
+- Knowledge graph integration
+- JSON-structured outputs
+- LLM response validation
 
-1. Activate the virtual environment:
-```bash
-source venv/bin/activate
+## Capabilities
+
+### Document Analysis
+- Automated text extraction from multiple file formats
+- Entity recognition and categorization
+- Relationship extraction between concepts
+- Confidence scoring for extracted information
+- Contextual analysis of document content
+- Batch processing of multiple documents
+- Real-time processing progress tracking
+
+### Knowledge Graph Management
+- Dynamic graph construction and updates
+- Node and edge weight calculations
+- Multi-level relationship mapping
+- Custom query support with context awareness
+- Interactive graph visualization
+- Visual graph editing capabilities
+- Graph statistics and analytics
+- Cache management for performance optimization
+- Automatic graph rebuilding
+
+### Chat Intelligence
+- Context-aware conversation handling
+- Knowledge graph-based response generation
+- Session management with timeouts
+- Conversation history tracking
+- Message caching for performance
+- Automatic context retrieval
+- Structured JSON response formatting
+- Error handling and recovery
+- Rate limiting and retry logic
+
+### API Integration
+- HuggingFace API integration for AI processing
+- Mistral API integration for chat
+- Websocket support for real-time updates
+- RESTful API endpoints for all features
+- Secure API authentication
+- Rate limiting and connection pooling
+- Automatic retry mechanisms
+- Keep-alive connection management
+
+### Data Management
+- JSON validation and cleanup
+- File upload and storage management
+- Automatic file organization
+- File format conversion
+- Data integrity checks
+- Security validation
+- Export capabilities
+- Backup management
+
+### User Interface
+- Drag-and-drop file upload
+- Interactive graph visualization
+- Real-time progress tracking
+- File management interface
+- Chat interface
+- Graph editing tools
+- Statistics dashboard
+- Responsive design
+- Dark/light theme support
+
+## System Architecture
+
+```mermaid
+graph TB
+    subgraph Frontend
+        UI[Web Interface]
+        VIS[Graph Visualization]
+        CHAT_UI[Chat Interface]
+    end
+
+    subgraph Backend
+        API[Flask API]
+        PARSER[Document Parser]
+        KG[Knowledge Graph Builder]
+        CHAT[Chat Manager]
+        LLM[LLM Utils]
+        VALID[JSON Validator]
+    end
+
+    subgraph Storage
+        FILES[(File Storage)]
+        GRAPH[(Graph Data)]
+        CACHE[(Cache)]
+    end
+
+    subgraph External
+        HF[HuggingFace API]
+        MISTRAL[Mistral API]
+    end
+
+    %% Frontend connections
+    UI --> |HTTP| API
+    VIS --> |WebSocket| API
+    CHAT_UI --> |HTTP| API
+
+    %% Backend processing
+    API --> PARSER
+    API --> KG
+    API --> CHAT
+    PARSER --> VALID
+    KG --> LLM
+    CHAT --> LLM
+
+    %% Storage connections
+    PARSER --> FILES
+    KG --> GRAPH
+    CHAT --> CACHE
+
+    %% External API connections
+    LLM --> HF
+    CHAT --> MISTRAL
+
+    style Frontend fill:#e1f5fe,stroke:#01579b
+    style Backend fill:#e8f5e9,stroke:#2e7d32
+    style Storage fill:#fff3e0,stroke:#ef6c00
+    style External fill:#f3e5f5,stroke:#7b1fa2
 ```
 
-2. Use the script by importing and calling the process_file function:
-```python
-from knowledgeGraph import process_file
+## API Documentation
 
-result = process_file("path/to/your/document")
-print(result)
-```
+### Document Endpoints
+- `POST /upload` - Upload and process documents
+- `GET /files` - List processed files
+- `DELETE /files/<filename>` - Delete processed file
 
-The script will:
-- Read the input file
-- Extract content based on file type
-- Generate a JSON file with the same name as the input file
-- Return a success/error message
+### Graph Endpoints
+- `POST /graph/build` - Rebuild knowledge graph
+- `GET /graph/view` - View interactive graph
+- `GET /graph/stats` - Get graph statistics
+- `POST /graph/query` - Query the graph
+
+### Chat Endpoints
+- `POST /chat/session` - Create chat session
+- `POST /chat/message` - Send message
+- `GET /chat` - Access chat interface
 
 ## Output Format
 
-The generated JSON files will have the following structure:
+Documents are processed into JSON with the following structure:
 ```json
 {
-    "filename": "input_file_name",
-    "file_type": ".extension",
-    "data": {
-        "content": [extracted_content]
-    }
+    "entities": [
+        {
+            "text": "string",
+            "category": "string",
+            "confidence": number
+        }
+    ],
+    "relationships": [
+        {
+            "source": "string",
+            "type": "string", 
+            "target": "string",
+            "weight": number
+        }
+    ]
 }
 ```
 
 ## Troubleshooting
 
-If you encounter OCR-related issues:
-- Ensure Tesseract is properly installed
-- For macOS: `brew install tesseract`
-- For Linux: `sudo apt-get install tesseract-ocr`
+### Common Issues
+1. Connection errors with HuggingFace API
+   - Check API token is set correctly
+   - Verify network connection
+   - Check API rate limits
+
+2. JSON format errors
+   - Validate input file format
+   - Check for encoding issues
+   - Use built-in validation endpoint
+
+3. Graph visualization issues
+   - Clear browser cache
+   - Check browser console for errors
+   - Verify graph data integrity
+
+4. Chat functionality issues
+   - Verify Mistral API access
+   - Check context length limits
+   - Monitor response timeouts
 
 ## License
 
-[Add your license information here]
+MIT License
