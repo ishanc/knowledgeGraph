@@ -82,6 +82,17 @@ HUGGINGFACE_TOKEN=your_token_here
 - Cache management for performance optimization
 - Automatic graph rebuilding
 
+### Accessing the Graph Editor
+1. Navigate to `/graph/editor` in your web browser
+2. Login with your credentials if required
+3. The editor provides the following features:
+   - Add/delete nodes with right-click menu
+   - Create relationships by dragging between nodes
+   - Edit node properties via the sidebar
+   - Adjust layout with drag-and-drop
+   - Save changes with the 'Apply' button
+   - Undo/redo support for all operations
+
 ### Chat Intelligence
 - Context-aware conversation handling
 - Knowledge graph-based response generation

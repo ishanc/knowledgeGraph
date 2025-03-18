@@ -324,45 +324,119 @@ def chat_message():
 def graph_editor():
     return render_template('graph_editor.html')
 
+def clean_node_label(label):
+    """Clean and normalize a node label."""
+    if not label:
+        return None
+        
+    # Remove extra whitespace
+    label = ' '.join(label.split())
+    
+    # Fix broken words (remove random splits)
+    label = label.replace(' o ', ' ')
+    label = label.replace(' s ', 's ')
+    label = label.replace(' ed ', 'ed ')
+    label = label.replace(' ing ', 'ing ')
+    label = label.replace(' ment', 'ment')
+    label = label.replace(' tion', 'tion')
+    
+    # Remove single letters except 'a' and 'i'
+    words = label.split()
+    words = [w for w in words if len(w) > 1 or w.lower() in ['a', 'i']]
+    
+    return ' '.join(words).strip()
+
+def is_valid_node_label(label):
+    """Validate if a node label is meaningful and properly formatted."""
+    if not label:
+        return False
+    
+    # Basic validation rules
+    if (len(label) < 3 or  # Too short
+        len(label) > 100 or  # Too long
+        len([c for c in label if c.isalpha()]) < 3):  # Not enough letters
+        return False
+        
+    words = label.split()
+    
+    # Word-level validation
+    for word in words:
+        # Check for broken words or meaningless sequences
+        if (len(word) == 1 and word.lower() not in ['a', 'i']) or \
+           (len(word) < 3 and word.lower() not in ['an', 'of', 'to', 'in', 'on', 'at', 'by', 'up']):
+            return False
+            
+    # Additional checks
+    if (len(words) > 10 or  # Too many words
+        sum(1 for c in label if c.isspace()) / len(label) > 0.3 or  # Too many spaces
+        sum(1 for c in label if c.isalpha()) / len(label) < 0.5):  # Not enough letters
+        return False
+    
+    return True
+
 @app.route('/graph/data')
 def get_graph_data():
-    nodes_data = []
-    edges_data = []
-    
-    for node, data in kg_builder.nx_graph.nodes(data=True):
-        nodes_data.append({
-            'id': node,
-            'label': node,
-            'color': data.get('color', '#1f77b4'),
-            'size': data.get('size', 20)
+    """Get the current graph data."""
+    try:
+        # Read from the existing knowledge graph HTML file
+        graph_file = os.path.join(GRAPH_OUTPUT_DIR, 'knowledge_graph.html')
+        if not os.path.exists(graph_file):
+            logger.error("Knowledge graph visualization file not found")
+            return jsonify({'error': 'Knowledge graph visualization not found'}), 404
+
+        with open(graph_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # Extract nodes and edges data using regex
+        import re
+        nodes_pattern = r'nodes\s*=\s*new\s*vis\.DataSet\((.*?)\);'
+        edges_pattern = r'edges\s*=\s*new\s*vis\.DataSet\((.*?)\);'
+        
+        nodes_match = re.search(nodes_pattern, content, re.DOTALL)
+        edges_match = re.search(edges_pattern, content, re.DOTALL)
+        
+        if not nodes_match or not edges_match:
+            logger.error("Could not find graph data in visualization file")
+            return jsonify({'error': 'Failed to extract graph data'}), 500
+
+        try:
+            nodes_data = json.loads(nodes_match.group(1))
+            edges_data = json.loads(edges_match.group(1))
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing graph data: {e}")
+            return jsonify({'error': 'Invalid graph data format'}), 500
+
+        return jsonify({
+            'nodes': nodes_data,
+            'edges': edges_data
         })
-    
-    for source, target, data in kg_builder.nx_graph.edges(data=True):
-        edges_data.append({
-            'id': f"{source}-{target}",
-            'from': source,
-            'to': target,
-            'label': data.get('type', 'related'),
-            'width': data.get('weight', 1) * 2
-        })
-    
-    return jsonify({
-        'nodes': nodes_data,
-        'edges': edges_data
-    })
+
+    except Exception as e:
+        logger.error(f"Error in get_graph_data: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/graph/node', methods=['POST'])
 def add_node():
     data = request.get_json()
     try:
+        # Clean and validate the label
+        label = clean_node_label(data['label'])
+        if not label or not is_valid_node_label(label):
+            return jsonify({'error': 'Invalid node label. Label must be meaningful and properly formatted.'}), 400
+            
         node_data = {
             'type': data.get('type', 'concept'),
-            'label': data['label'],
+            'label': label,
             'timestamp': datetime.now().isoformat(),
             'source': 'user_edit',
             'confidence': 1.0
         }
-        kg_builder.nx_graph.add_node(data['label'], **kg_builder._prepare_node_data(node_data))
+        
+        # Check for duplicate nodes (case insensitive)
+        if any(n for n in kg_builder.nx_graph.nodes if n.lower() == label.lower()):
+            return jsonify({'error': 'A node with this label already exists'}), 400
+            
+        kg_builder.nx_graph.add_node(label, **kg_builder._prepare_node_data(node_data))
         kg_builder.visualize_graph()
         return jsonify({'status': 'success'})
     except Exception as e:
@@ -376,7 +450,6 @@ def modify_node(node_id):
         else:
             data = request.get_json()
             kg_builder.nx_graph.nodes[node_id].update(kg_builder._prepare_node_data(data))
-        
         kg_builder.visualize_graph()
         return jsonify({'status': 'success'})
     except Exception as e:
@@ -403,21 +476,68 @@ def add_relationship():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+@app.route('/graph/relationship/<source>/<target>', methods=['PUT', 'DELETE'])
+def modify_relationship(source, target):
+    try:
+        if request.method == 'DELETE':
+            kg_builder.nx_graph.remove_edge(source, target)
+        else:
+            data = request.get_json()
+            if not data:
+                return jsonify({'error': 'No data provided'}), 400
+
+            # Validate relationship data
+            if 'type' not in data:
+                return jsonify({'error': 'Relationship type is required'}), 400
+
+            edge_data = {
+                'type': data['type'],
+                'weight': data.get('weight', 1.0),
+                'timestamp': datetime.now().isoformat(),
+                'source': 'user_edit',
+                'confidence': data.get('confidence', 1.0)
+            }
+            
+            # Update edge data
+            kg_builder.nx_graph[source][target].update(
+                kg_builder._prepare_node_data(edge_data)
+            )
+            
+        kg_builder.visualize_graph()
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error modifying relationship: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/graph/history/<node_id>')
+def get_node_history(node_id):
+    try:
+        history = kg_builder.get_node_history(node_id)
+        return jsonify({'history': history})
+    except Exception as e:
+        logger.error(f"Error getting node history: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+# Enhance the stats endpoint
 @app.route('/graph/stats')
 def get_graph_stats():
     try:
-        nodes = list(kg_builder.nx_graph.nodes(data=True))  # Convert to list for accurate counting
-        edges = kg_builder.nx_graph.edges(data=True)
+        nodes = list(kg_builder.nx_graph.nodes(data=True))
+        edges = list(kg_builder.nx_graph.edges(data=True))
         
-        # Debug logging to inspect node types
-        for node, data in nodes:
-            logger.debug(f"Node {node} has type: {data.get('type', 'unknown')}")
-            
+        # Get edge types
+        edge_types = {}
+        for _, _, data in edges:
+            edge_type = data.get('type', 'unknown')
+            edge_types[edge_type] = edge_types.get(edge_type, 0) + 1
+
         stats = {
             'nodes': len(nodes),
             'edges': len(edges),
             'topics': sum(1 for _, data in nodes if str(data.get('type', '')).lower() == 'topic'),
-            'concepts': sum(1 for _, data in nodes if str(data.get('type', '')).lower() in ['concept', 'entity'])
+            'concepts': sum(1 for _, data in nodes if str(data.get('type', '')).lower() in ['concept', 'entity']),
+            'edge_types': edge_types,
+            'last_modified': datetime.now().isoformat()
         }
         
         logger.debug(f"Graph stats: {stats}")

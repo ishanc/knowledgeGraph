@@ -11,6 +11,7 @@
             gap: 20px;
             padding: 20px;
             height: 100vh;
+            box-sizing: border-box;
         }
         .sidebar {
             background: #f8f9fa;
@@ -23,6 +24,16 @@
             height: calc(100vh - 40px);
             border: 1px solid #ddd;
             border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+        #graphViewer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #fafafa;
         }
         .node-list {
             list-style: none;
@@ -42,6 +53,44 @@
         .edit-form {
             margin-top: 20px;
         }
+        .history-panel {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .edit-panel {
+            position: fixed;
+            left: 320px;
+            top: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 400px;
+            z-index: 1000;
+            display: none;
+        }
+        .toolbar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+        .edge-label {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -60,6 +109,54 @@
         </div>
     </div>
 
+    <div id="historyPanel" class="history-panel"></div>
+    
+    <!-- Add edit panels -->
+    <div id="nodeEditPanel" class="edit-panel">
+        <h5>Edit Node</h5>
+        <div class="mb-3">
+            <label class="form-label">Label</label>
+            <input type="text" class="form-control" id="nodeLabel">
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Type</label>
+            <select class="form-control" id="nodeType">
+                <option value="concept">Concept</option>
+                <option value="topic">Topic</option>
+                <option value="entity">Entity</option>
+            </select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="updateCurrentNode()">Update</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCurrentNode()">Delete</button>
+        <button class="btn btn-info btn-sm" onclick="showNodeHistory()">History</button>
+    </div>
+
+    <div id="edgeEditPanel" class="edit-panel">
+        <h5>Edit Relationship</h5>
+        <div class="mb-3">
+            <label class="form-label">Type</label>
+            <select class="form-control" id="edgeType">
+                <option value="is_a">Is A</option>
+                <option value="has">Has</option>
+                <option value="part_of">Part Of</option>
+                <option value="belongs_to">Belongs To</option>
+                <option value="related_to">Related To</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Weight (0-1)</label>
+            <input type="number" class="form-control" id="edgeWeight" min="0" max="1" step="0.1">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="updateCurrentEdge()">Update</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCurrentEdge()">Delete</button>
+    </div>
+
+    <!-- Add toolbar -->
+    <div class="toolbar">
+        <button class="btn btn-primary" onclick="togglePhysics()">Toggle Physics</button>
+        <button class="btn btn-success" onclick="fitGraph()">Fit View</button>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js"></script>
     <script>
         // Add utility functions
@@ -76,40 +173,160 @@
         let nodes = new vis.DataSet([]);
         let edges = new vis.DataSet([]);
 
+        async function loadGraphData() {
+            try {
+                const response = await fetch('/graph/data');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('Loaded graph data:', data); 
+
+                // Create new datasets
+                nodes = new vis.DataSet(data.nodes.map(node => ({
+                    ...node,
+                    shape: 'dot',
+                    size: node.size || 25,
+                    font: { size: 14 },
+                    color: node.color || getRandomColor()
+                })));
+
+                edges = new vis.DataSet(data.edges.map(edge => ({
+                    ...edge,
+                    width: edge.width || 2,
+                    label: edge.label || ''
+                })));
+
+                // Update the network with new data
+                network.setData({ nodes, edges });
+                
+                // Stabilize and fit the network
+                network.once('stabilizationIterationsDone', () => {
+                    network.fit();
+                });
+
+                updateNodeList();
+                
+            } catch (error) {
+                console.error('Error loading graph data:', error);
+                alert('Failed to load graph data: ' + error.message);
+            }
+        }
+
+        let currentNodeId = null;
+        let currentEdge = null;
+
         // Initialize the graph viewer
         document.addEventListener('DOMContentLoaded', async () => {
             const container = document.getElementById('graphViewer');
+            
             const options = {
+                autoResize: true,
+                height: '100%',
+                width: '100%',
                 physics: {
                     enabled: true,
-                    stabilization: true
+                    barnesHut: {
+                        gravitationalConstant: -2000,
+                        centralGravity: 0.3,
+                        springLength: 95,
+                        springConstant: 0.04,
+                        damping: 0.09
+                    }
                 },
                 nodes: {
                     shape: 'dot',
-                    size: 16
+                    scaling: {
+                        min: 10,
+                        max: 30,
+                        label: {
+                            enabled: true,
+                            min: 8,
+                            max: 30,
+                            maxVisible: 30,
+                            drawThreshold: 5
+                        }
+                    },
+                    font: {
+                        size: 14,
+                        face: 'arial'
+                    }
                 },
                 edges: {
-                    arrows: 'to'
+                    width: 2,
+                    color: { inherit: 'from' },
+                    smooth: {
+                        type: 'continuous'
+                    },
+                    arrows: {
+                        to: { enabled: true, scaleFactor: 0.5 }
+                    }
+                },
+                interaction: {
+                    hover: true,
+                    hoverConnectedEdges: true,
+                    selectable: true,
+                    selectConnectedEdges: true,
+                    multiselect: false,
+                    navigationButtons: true,
+                    keyboard: true
                 }
             };
+
+            // Initialize with empty data first
+            network = new vis.Network(container, { nodes: [], edges: [] }, options);
             
-            network = new vis.Network(container, { nodes, edges }, options);
+            // Load data after network is initialized
             await loadGraphData();
             
             network.on('selectNode', function(params) {
-                showNodeEditor(params.nodes[0]);
+                if (params.nodes.length) {
+                    currentNodeId = params.nodes[0];
+                    const node = nodes.get(currentNodeId);
+                    if (node) {
+                        hideEditPanels();
+                        showNodeEditPanel(currentNodeId);
+                    }
+                }
+            });
+
+            network.on('selectEdge', function(params) {
+                if (params.edges.length) {
+                    const edgeId = params.edges[0];
+                    currentEdge = edges.get(edgeId);
+                    if (currentEdge) {
+                        hideEditPanels();
+                        showEdgeEditPanel(currentEdge);
+                    }
+                }
+            });
+
+            network.on('deselectNode', function() {
+                hideEditPanels();
+                currentNodeId = null;
+            });
+
+            network.on('deselectEdge', function() {
+                hideEditPanels();
+                currentEdge = null;
+            });
+
+            // Add right-click context menu
+            network.on('oncontext', function(params) {
+                params.event.preventDefault();
+                const { pointer } = params;
+                const nodeId = network.getNodeAt(pointer.DOM);
+                const edgeId = network.getEdgeAt(pointer.DOM);
+                
+                if (nodeId) {
+                    currentNodeId = nodeId;
+                    showNodeEditPanel(nodeId);
+                } else if (edgeId) {
+                    currentEdge = edges.get(edgeId);
+                    showEdgeEditPanel(currentEdge);
+                }
             });
         });
-
-        async function loadGraphData() {
-            const response = await fetch('/graph/data');
-            const data = await response.json();
-            nodes.clear();
-            edges.clear();
-            nodes.add(data.nodes);
-            edges.add(data.edges);
-            updateNodeList();
-        }
 
         function updateNodeList() {
             const nodeList = document.getElementById('nodeList');
@@ -202,6 +419,175 @@
             if (response.ok) {
                 await loadGraphData();
             }
+        }
+
+        async function deleteEdge(source, target) {
+            if (!confirm('Are you sure you want to delete this relationship?')) return;
+            
+            const response = await fetch(`/graph/relationship/${source}/${target}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                await loadGraphData();
+            }
+        }
+
+        async function editEdge(source, target) {
+            const edge = edges.get(edges.getIds().find(id => {
+                const e = edges.get(id);
+                return e.from === source && e.to === target;
+            }));
+            
+            if (!edge) return;
+            
+            const type = prompt('Enter new relationship type:', edge.type);
+            const weight = parseFloat(prompt('Enter new weight (0-1):', edge.weight || 1));
+            
+            if (!type) return;
+            
+            const response = await fetch(`/graph/relationship/${source}/${target}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    type,
+                    weight: isNaN(weight) ? 1 : weight
+                })
+            });
+            
+            if (response.ok) {
+                await loadGraphData();
+            }
+        }
+
+        async function showNodeHistory(nodeId) {
+            const response = await fetch(`/graph/history/${nodeId}`);
+            if (response.ok) {
+                const data = await response.json();
+                const history = data.history;
+                
+                let historyHtml = '<h5>Node History</h5><ul>';
+                history.forEach(item => {
+                    historyHtml += `
+                        <li>
+                            ${item.type} - ${new Date(item.timestamp).toLocaleString()}
+                            ${item.relationship ? `<br>Relationship: ${item.relationship} -> ${item.target}` : ''}
+                        </li>`;
+                });
+                historyHtml += '</ul>';
+                
+                document.getElementById('historyPanel').innerHTML = historyHtml;
+            }
+        }
+
+        // Add event handlers
+        network.on("doubleClick", function(params) {
+            if (params.edges && params.edges.length) {
+                const edge = edges.get(params.edges[0]);
+                editEdge(edge.from, edge.to);
+            }
+        });
+
+        network.on("controlNodeDragEnd", function(data) {
+            if (data.edges && data.edges.length) {
+                const edge = edges.get(data.edges[0]);
+                editEdge(edge.from, edge.to);
+            }
+        });
+
+        function showNodeEditPanel(nodeId) {
+            const node = nodes.get(nodeId);
+            if (!node) return;
+
+            document.getElementById('nodeLabel').value = node.label || '';
+            document.getElementById('nodeType').value = node.type || 'concept';
+            document.getElementById('nodeEditPanel').style.display = 'block';
+            document.getElementById('edgeEditPanel').style.display = 'none';
+        }
+
+        function showEdgeEditPanel(edge) {
+            if (!edge) return;
+
+            document.getElementById('edgeType').value = edge.type || 'related_to';
+            document.getElementById('edgeWeight').value = edge.weight || 1;
+            document.getElementById('nodeEditPanel').style.display = 'none';
+            document.getElementById('edgeEditPanel').style.display = 'block';
+        }
+
+        function hideEditPanels() {
+            document.getElementById('nodeEditPanel').style.display = 'none';
+            document.getElementById('edgeEditPanel').style.display = 'none';
+        }
+
+        async function updateCurrentNode() {
+            if (!currentNodeId) return;
+            
+            const label = document.getElementById('nodeLabel').value;
+            const type = document.getElementById('nodeType').value;
+            
+            const response = await fetch(`/graph/node/${currentNodeId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ label, type })
+            });
+            
+            if (response.ok) {
+                await loadGraphData();
+                hideEditPanels();
+            }
+        }
+
+        async function deleteCurrentNode() {
+            if (!currentNodeId || !confirm('Are you sure you want to delete this node?')) return;
+            
+            const response = await fetch(`/graph/node/${currentNodeId}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                await loadGraphData();
+                hideEditPanels();
+            }
+        }
+
+        async function updateCurrentEdge() {
+            if (!currentEdge) return;
+            
+            const type = document.getElementById('edgeType').value;
+            const weight = parseFloat(document.getElementById('edgeWeight').value);
+            
+            const response = await fetch(`/graph/relationship/${currentEdge.from}/${currentEdge.to}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ type, weight })
+            });
+            
+            if (response.ok) {
+                await loadGraphData();
+                hideEditPanels();
+            }
+        }
+
+        async function deleteCurrentEdge() {
+            if (!currentEdge || !confirm('Are you sure you want to delete this relationship?')) return;
+            
+            const response = await fetch(`/graph/relationship/${currentEdge.from}/${currentEdge.to}`, {
+                method: 'DELETE'
+            });
+            
+            if (response.ok) {
+                await loadGraphData();
+                hideEditPanels();
+            }
+        }
+
+        function togglePhysics() {
+            const physics = network.physics.options.enabled;
+            network.setOptions({ physics: { enabled: !physics } });
+        }
+
+        function fitGraph() {
+            network.fit();
         }
     </script>
 </body>
