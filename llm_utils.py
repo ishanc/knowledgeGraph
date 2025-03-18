@@ -85,7 +85,7 @@ Example response:
 Ensure your response is a valid JSON object following this format exactly."""
     return prompt
 
-# Example JSON schema for validation
+# Update schema to include media processing
 LLM_RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -112,6 +112,85 @@ LLM_RESPONSE_SCHEMA = {
                     "weight": {"type": "number"}
                 },
                 "required": ["source", "type", "target"]
+            }
+        },
+        "media": {
+            "type": "object",
+            "properties": {
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "type": {"type": "string", "enum": ["image"]},
+                            "content": {"type": "string"},
+                            "metadata": {
+                                "type": "object",
+                                "properties": {
+                                    "width": {"type": "number"},
+                                    "height": {"type": "number"},
+                                    "format": {"type": "string"},
+                                    "caption": {"type": "string"},
+                                    "extracted_text": {"type": "string"},
+                                    "confidence": {"type": "number"}
+                                }
+                            },
+                            "relationships": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"type": "string"},
+                                        "target": {"type": "string"},
+                                        "confidence": {"type": "number"}
+                                    }
+                                }
+                            }
+                        },
+                        "required": ["id", "type", "metadata"]
+                    }
+                },
+                "tables": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "type": {"type": "string", "enum": ["table"]},
+                            "headers": {"type": "array", "items": {"type": "string"}},
+                            "data": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {"type": "string"}
+                                }
+                            },
+                            "metadata": {
+                                "type": "object",
+                                "properties": {
+                                    "rows": {"type": "number"},
+                                    "columns": {"type": "number"},
+                                    "title": {"type": "string"},
+                                    "caption": {"type": "string"},
+                                    "confidence": {"type": "number"}
+                                }
+                            },
+                            "relationships": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "type": {"type": "string"},
+                                        "target": {"type": "string"},
+                                        "confidence": {"type": "number"}
+                                    }
+                                }
+                            }
+                        },
+                        "required": ["id", "type", "headers", "data", "metadata"]
+                    }
+                }
             }
         }
     }
@@ -153,7 +232,55 @@ Your response must be a valid JSON object with the following structure:
             "target": "string",
             "weight": number
         }
-    ]
+    ],
+    "media": {
+        "images": [
+            {
+                "id": "string",
+                "type": "string",
+                "content": "string",
+                "metadata": {
+                    "width": number,
+                    "height": number,
+                    "format": "string",
+                    "caption": "string",
+                    "extracted_text": "string",
+                    "confidence": number
+                },
+                "relationships": [
+                    {
+                        "type": "string",
+                        "target": "string",
+                        "confidence": number
+                    }
+                ]
+            }
+        ],
+        "tables": [
+            {
+                "id": "string",
+                "type": "string",
+                "headers": ["string"],
+                "data": [
+                    ["string"]
+                ],
+                "metadata": {
+                    "rows": number,
+                    "columns": number,
+                    "title": "string",
+                    "caption": "string",
+                    "confidence": number
+                },
+                "relationships": [
+                    {
+                        "type": "string",
+                        "target": "string",
+                        "confidence": number
+                    }
+                ]
+            }
+        ]
+    }
 }
 
 Requirements:

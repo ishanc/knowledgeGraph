@@ -61,6 +61,15 @@ HUGGINGFACE_TOKEN=your_token_here
 - Contextual analysis of document content
 - Batch processing of multiple documents
 - Real-time processing progress tracking
+- Image and Table Processing:
+  - OCR for images and diagrams
+  - Table structure recognition
+  - Image metadata extraction
+  - Image-text relationship mapping
+  - Table header/content analysis
+  - Image caption processing
+  - Technical diagram interpretation
+  - Format preservation in JSON output
 
 ### Knowledge Graph Management
 - Dynamic graph construction and updates
@@ -210,9 +219,72 @@ Documents are processed into JSON with the following structure:
             "target": "string",
             "weight": number
         }
-    ]
+    ],
+    "media": {
+        "images": [
+            {
+                "id": "string",
+                "type": "image",
+                "content": "base64_encoded_string",
+                "metadata": {
+                    "width": number,
+                    "height": number,
+                    "format": "string",
+                    "caption": "string",
+                    "extracted_text": "string",
+                    "confidence": number
+                },
+                "relationships": [
+                    {
+                        "type": "illustrates",
+                        "target": "entity_id",
+                        "confidence": number
+                    }
+                ]
+            }
+        ],
+        "tables": [
+            {
+                "id": "string",
+                "type": "table",
+                "headers": ["string"],
+                "data": [["string"]],
+                "metadata": {
+                    "rows": number,
+                    "columns": number,
+                    "title": "string",
+                    "caption": "string",
+                    "confidence": number
+                },
+                "relationships": [
+                    {
+                        "type": "supports",
+                        "target": "entity_id",
+                        "confidence": number
+                    }
+                ]
+            }
+        ]
+    }
 }
 ```
+
+### Media Processing Details
+
+#### Image Processing
+- OCR extraction with confidence scores
+- Metadata preservation (dimensions, format)
+- Caption and context linkage
+- Technical diagram interpretation
+- Automatic relationship mapping to relevant text entities
+
+#### Table Processing  
+- Structure preservation with headers/data
+- Row/column metadata
+- Caption and title extraction
+- Data type inference
+- Relationship mapping to supporting content
+- Confidence scoring for extracted cells
 
 ## Troubleshooting
 
