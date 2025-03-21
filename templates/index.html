@@ -295,6 +295,10 @@
                         <div class="spinner-loader" id="rebuildLoader"></div>
                     </button>
                     <button onclick="viewGraph()" class="view-btn">View Knowledge Graph</button>
+                    <button onclick="refreshStats()" class="refresh-btn button-with-loader">
+                        Restart Server
+                        <div class="spinner-loader" id="restartLoader"></div>
+                    </button>
                     <button onclick="loadProcessedFiles()" class="refresh-btn">Refresh List</button>
                 </div>
             </div>
@@ -523,6 +527,41 @@
                 console.error('Error updating stats:', error);
             }
         }
+        
+        async function refreshStats() {
+            if (!confirm('Are you sure you want to restart the server? This may take a moment.')) return;
+            
+            const loader = document.getElementById('restartLoader');
+            const restartBtn = loader.parentElement;
+            
+            try {
+                loader.style.display = 'block';
+                restartBtn.disabled = true;
+                
+                const response = await fetch('./restart', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if(result.status === 'success') {
+                    alert(`Server restarting. Stats: ${JSON.stringify(result.stats)}`);
+                    
+                    // Wait briefly then reload the page to reconnect to restarted server
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 3000);
+                } else {
+                    alert('Error restarting server: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Error restarting server:', error);
+                alert('Error restarting server. Check console for details.');
+            } finally {
+                loader.style.display = 'none';
+                restartBtn.disabled = false;
+            }
+        }
 
         // Update stats when page loads and ensure async operation completes
         document.addEventListener('DOMContentLoaded', async () => {
@@ -531,9 +570,6 @@
                 updateStats()
             ]);
         });
-
-        // Remove duplicate event listener
-        // document.addEventListener('DOMContentLoaded', loadProcessedFiles);
     </script>
 </body>
 </html>

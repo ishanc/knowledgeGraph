@@ -1,0 +1,202 @@
+2025-03-21 20:53:23,819 - knowledge_graph_builder - INFO - Loading spaCy model...
+2025-03-21 20:53:24,512 - knowledge_graph_builder - INFO - Using en_core_web_lg model
+2025-03-21 20:53:24,513 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-03-21 20:53:24,513 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-03-21 20:53:24,515 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-03-21 20:53:24,774 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/modules.json HTTP/1.1" 200 0
+2025-03-21 20:53:25,011 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/config_sentence_transformers.json HTTP/1.1" 200 0
+2025-03-21 20:53:25,232 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/README.md HTTP/1.1" 200 0
+2025-03-21 20:53:25,452 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/modules.json HTTP/1.1" 200 0
+2025-03-21 20:53:25,654 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/sentence_bert_config.json HTTP/1.1" 200 0
+2025-03-21 20:53:25,874 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json HTTP/1.1" 404 0
+2025-03-21 20:53:26,088 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json HTTP/1.1" 200 0
+2025-03-21 20:53:26,502 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer_config.json HTTP/1.1" 200 0
+2025-03-21 20:53:26,753 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/sentence-transformers/all-MiniLM-L6-v2/revision/main HTTP/1.1" 200 6729
+2025-03-21 20:53:26,998 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/sentence-transformers/all-MiniLM-L6-v2 HTTP/1.1" 200 6729
+2025-03-21 20:53:27,105 - __main__ - INFO - Starting application server on port 8080
+2025-03-21 20:53:27,105 - __main__ - INFO - Python version: 3.10.16
+2025-03-21 20:53:27,197 - __main__ - INFO - Platform: macOS-14.7.1-arm64-arm-64bit
+2025-03-21 20:53:27,198 - __main__ - INFO - Working directory: /Users/i0c00cu/Documents/KAG/knowledgeGraph
+2025-03-21 20:53:27,208 - werkzeug - WARNING -  * Debugger is active!
+2025-03-21 20:53:27,220 - werkzeug - INFO -  * Debugger PIN: 222-989-458
+2025-03-21 20:53:55,631 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:53:55] "GET / HTTP/1.1" 200 -
+2025-03-21 20:53:55,683 - __main__ - DEBUG - Graph stats: {'nodes': 0, 'edges': 0, 'topics': 0, 'concepts': 0, 'edge_types': {}, 'last_modified': '2025-03-21T20:53:55.683696'}
+2025-03-21 20:53:55,683 - __main__ - DEBUG - Found JSON files: ['SAP_SD_business_process_and_configuration_documents.json', 'SAP_SD_enterprise_structure.json']
+2025-03-21 20:53:55,684 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:53:55] "GET /graph/stats HTTP/1.1" 200 -
+2025-03-21 20:53:55,684 - __main__ - DEBUG - Reading file: processed_files/SAP_SD_business_process_and_configuration_documents.json
+2025-03-21 20:53:55,691 - __main__ - DEBUG - Successfully processed SAP_SD_business_process_and_configuration_documents.json
+2025-03-21 20:53:55,691 - __main__ - DEBUG - Reading file: processed_files/SAP_SD_enterprise_structure.json
+2025-03-21 20:53:55,693 - __main__ - DEBUG - Successfully processed SAP_SD_enterprise_structure.json
+2025-03-21 20:53:55,693 - __main__ - DEBUG - Returning files_data: [{'filename': 'SAP_SD_business_process_and_configuration_documents.txt', 'file_type': '.txt', 'json_path': 'SAP_SD_business_process_and_configuration_documents.json', 'timestamp': '2025-03-21T19:10:16.854904', 'is_valid': True}, {'filename': 'SAP_SD_enterprise_structure.txt', 'file_type': '.txt', 'json_path': 'SAP_SD_enterprise_structure.json', 'timestamp': '2025-03-21T19:23:12.111885', 'is_valid': True}]
+2025-03-21 20:53:55,693 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:53:55] "GET /files HTTP/1.1" 200 -
+2025-03-21 20:54:10,302 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): router.huggingface.co:443
+2025-03-21 20:54:11,226 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1933
+2025-03-21 20:54:11,946 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1934
+2025-03-21 20:54:12,190 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 4936
+2025-03-21 20:54:12,446 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 3300
+2025-03-21 20:54:13,059 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1928
+2025-03-21 20:54:13,473 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 2200
+2025-03-21 20:54:13,728 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 3309
+2025-03-21 20:54:13,967 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1933
+2025-03-21 20:54:14,388 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1657
+2025-03-21 20:54:14,760 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1664
+2025-03-21 20:54:14,998 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 4670
+2025-03-21 20:54:15,427 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 2202
+2025-03-21 20:54:15,666 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1945
+2025-03-21 20:54:15,903 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1924
+2025-03-21 20:54:16,146 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1659
+2025-03-21 20:54:16,436 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 2210
+2025-03-21 20:54:16,702 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1935
+2025-03-21 20:54:16,937 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 3308
+2025-03-21 20:54:17,194 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1936
+2025-03-21 20:54:17,665 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1936
+2025-03-21 20:54:17,969 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1655
+2025-03-21 20:54:18,282 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 1652
+2025-03-21 20:54:18,520 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 2201
+2025-03-21 20:54:18,792 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 3287
+2025-03-21 20:54:18,934 - knowledge_graph_builder - DEBUG - Added topic node: **Pricing Condition Types**
+2025-03-21 20:54:19,044 - knowledge_graph_builder - DEBUG - Added topic node: **Delivery Doc Type Config**
+2025-03-21 20:54:19,153 - knowledge_graph_builder - DEBUG - Added topic node: **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:19,260 - knowledge_graph_builder - DEBUG - Added topic node: **Topic Name:** "Sales Doc Pricing Config"
+2025-03-21 20:54:19,369 - knowledge_graph_builder - DEBUG - Added topic node: "Sap Sales Delivery"
+2025-03-21 20:54:19,480 - knowledge_graph_builder - DEBUG - Added topic node: "Divide Sales By Code"
+2025-03-21 20:54:19,587 - knowledge_graph_builder - DEBUG - Added topic node: **Topic Name:** "Channel-Specific Sales Strategies"
+2025-03-21 20:54:19,595 - knowledge_graph_builder - DEBUG - Added topic node: "Sales Order Master Data"
+2025-03-21 20:54:19,603 - knowledge_graph_builder - DEBUG - Added topic node: "Outbound Delivery"
+2025-03-21 20:54:19,611 - knowledge_graph_builder - DEBUG - Added topic node: **Free Goods Configuration**
+2025-03-21 20:54:19,619 - knowledge_graph_builder - DEBUG - Added topic node: **Topic Name:** "Divide & Define: Product Lines & Sales Areas"
+2025-03-21 20:54:19,627 - knowledge_graph_builder - DEBUG - Added topic node: "Divide Sales By Region"
+2025-03-21 20:54:19,635 - knowledge_graph_builder - DEBUG - Added topic node: **Divisional Performance Optimization**
+2025-03-21 20:54:19,643 - knowledge_graph_builder - DEBUG - Added topic node: "Bill Of Lading"
+2025-03-21 20:54:19,651 - knowledge_graph_builder - DEBUG - Added topic node: "Delivery Date Check"
+2025-03-21 20:54:19,659 - knowledge_graph_builder - DEBUG - Added topic node: "Multi-Channel Data Integration"
+2025-03-21 20:54:19,668 - knowledge_graph_builder - DEBUG - Added topic node: **Data Governance Structure**
+2025-03-21 20:54:19,676 - knowledge_graph_builder - DEBUG - Added topic node: **Topic Name:** "Spro Enterprise Sales Assignment"
+2025-03-21 20:54:19,797 - knowledge_graph_builder - DEBUG - Added topic node: **Rebate Contract Management**
+2025-03-21 20:54:19,804 - knowledge_graph_builder - DEBUG - Added topic node: **Company Code Best Practice**
+2025-03-21 20:54:19,918 - knowledge_graph_builder - DEBUG - Added topic node: Edi Delivery Advice
+2025-03-21 20:54:19,926 - knowledge_graph_builder - DEBUG - Added topic node: "Divide Sales"
+2025-03-21 20:54:19,934 - knowledge_graph_builder - DEBUG - Added topic node: "Sap Sales Order Setup"
+2025-03-21 20:54:20,054 - knowledge_graph_builder - DEBUG - Added topic node: "Sap S/4Hana Sales Analytics"
+2025-03-21 20:54:20,548 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 44426
+2025-03-21 20:54:20,690 - knowledge_graph_builder - DEBUG - Added concept node: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales
+2025-03-21 20:54:20,707 - knowledge_graph_builder - DEBUG - Added concept node: Enterprise Structures
+2025-03-21 20:54:21,000 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 178121
+2025-03-21 20:54:21,215 - knowledge_graph_builder - DEBUG - Added concept node: Enterprise Structures
+2025-03-21 20:54:21,236 - knowledge_graph_builder - DEBUG - Added concept node: SAP S/4HANA
+2025-03-21 20:54:21,260 - knowledge_graph_builder - DEBUG - Added concept node: Sales
+2025-03-21 20:54:21,270 - knowledge_graph_builder - DEBUG - Added concept node: Enterprise structures
+2025-03-21 20:54:21,278 - knowledge_graph_builder - DEBUG - Added concept node: Client
+2025-03-21 20:54:21,286 - knowledge_graph_builder - DEBUG - Added concept node: Company Code
+2025-03-21 20:54:21,294 - knowledge_graph_builder - DEBUG - Added concept node: Sales Organization
+2025-03-21 20:54:21,301 - knowledge_graph_builder - DEBUG - Added concept node: Distribution Channel
+2025-03-21 20:54:21,309 - knowledge_graph_builder - DEBUG - Added concept node: Division
+2025-03-21 20:54:21,318 - knowledge_graph_builder - DEBUG - Added concept node: Sales Area
+2025-03-21 20:54:21,768 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 44426
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Added relationship: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales -is_a-> Enterprise Structures
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales -> **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales -> "Sap Sales Delivery"
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales -> **Topic Name:** "Spro Enterprise Sales Assignment"
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales -> "Sap Sales Order Setup"
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA Sales Business Process Document 1. Enterprise Structures 1.1 Identifying Enterprise Structures in SAP S/4HANA Sales -> "Sap S/4Hana Sales Analytics"
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: Enterprise Structures -> **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:21,789 - knowledge_graph_builder - DEBUG - Connected to topic: Enterprise Structures -> **Data Governance Structure**
+2025-03-21 20:54:22,039 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 178121
+2025-03-21 20:54:22,478 - knowledge_graph_builder - DEBUG - Connected to topic: Enterprise Structures -> **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: Enterprise Structures -> **Data Governance Structure**
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Added relationship: SAP S/4HANA -has-> Sales
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA -> **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA -> "Sap Sales Delivery"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA -> "Sap Sales Order Setup"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: SAP S/4HANA -> "Sap S/4Hana Sales Analytics"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Added relationship: Sales -has-> Enterprise structures
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> **Topic Name:** "Sales Doc Pricing Config"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> "Sap Sales Delivery"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> "Divide Sales By Code"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> **Topic Name:** "Channel-Specific Sales Strategies"
+2025-03-21 20:54:22,479 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> "Divide Sales By Region"
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> **Topic Name:** "Spro Enterprise Sales Assignment"
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> "Divide Sales"
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Sales -> "Sap S/4Hana Sales Analytics"
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Added relationship: Enterprise structures -has-> Client
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Added relationship: Enterprise structures -has-> Company Code
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Added relationship: Enterprise structures -has-> Sales Organization
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Added relationship: Enterprise structures -has-> Distribution Channel
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Added relationship: Enterprise structures -has-> Division
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Added relationship: Enterprise structures -has-> Sales Area
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Enterprise structures -> **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Enterprise structures -> **Data Governance Structure**
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Company Code -> "Divide Sales By Code"
+2025-03-21 20:54:22,480 - knowledge_graph_builder - DEBUG - Connected to topic: Company Code -> **Company Code Best Practice**
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> **Topic Name:** "Sap S/4Hana Sales: Enterprise Structures"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> **Topic Name:** "Sales Doc Pricing Config"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> "Sap Sales Delivery"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> "Divide Sales By Code"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> **Topic Name:** "Channel-Specific Sales Strategies"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> "Divide Sales By Region"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> **Topic Name:** "Spro Enterprise Sales Assignment"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> "Divide Sales"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> "Sap Sales Order Setup"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Organization -> "Sap S/4Hana Sales Analytics"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Distribution Channel -> **Topic Name:** "Channel-Specific Sales Strategies"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Distribution Channel -> "Multi-Channel Data Integration"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Division -> "Divide Sales By Code"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Division -> "Divide Sales By Region"
+2025-03-21 20:54:22,481 - knowledge_graph_builder - DEBUG - Connected to topic: Division -> **Divisional Performance Optimization**
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Division -> "Divide Sales"
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Area -> "Sap Sales Delivery"
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Area -> **Topic Name:** "Channel-Specific Sales Strategies"
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Area -> **Topic Name:** "Divide & Define: Product Lines & Sales Areas"
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Area -> "Divide Sales By Region"
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Area -> **Topic Name:** "Spro Enterprise Sales Assignment"
+2025-03-21 20:54:22,482 - knowledge_graph_builder - DEBUG - Connected to topic: Sales Area -> "Divide Sales"
+2025-03-21 20:54:22,487 - knowledge_graph_builder - INFO - Graph built with 35 nodes and 54 edges
+2025-03-21 20:54:22,487 - knowledge_graph_builder - INFO - Topics: 24
+2025-03-21 20:54:22,487 - knowledge_graph_builder - INFO - Concepts: 11
+2025-03-21 20:54:22,487 - knowledge_graph_builder - INFO - Relationships: 54
+2025-03-21 20:54:22,494 - knowledge_graph_builder - INFO - Enhanced graph visualization saved to static/graph/knowledge_graph.html
+2025-03-21 20:54:22,495 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:54:22] "POST /graph/build HTTP/1.1" 200 -
+2025-03-21 20:54:22,500 - __main__ - DEBUG - Graph stats: {'nodes': 35, 'edges': 54, 'topics': 24, 'concepts': 11, 'edge_types': {'is_a': 1, 'belongs_to': 45, 'has': 8}, 'last_modified': '2025-03-21T20:54:22.500450'}
+2025-03-21 20:54:22,500 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:54:22] "GET /graph/stats HTTP/1.1" 200 -
+2025-03-21 20:54:24,921 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:54:24] "GET /graph/view HTTP/1.1" 200 -
+2025-03-21 20:54:53,326 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:54:53] "GET /chat HTTP/1.1" 200 -
+2025-03-21 20:54:53,411 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:54:53] "POST /chat/session HTTP/1.1" 200 -
+2025-03-21 20:54:55,966 - chat.session - ERROR - Error generating response: 'list' object has no attribute 'reshape'
+2025-03-21 20:54:55,966 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:54:55] "POST /chat/message HTTP/1.1" 200 -
+2025-03-21 20:55:02,757 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:02] "POST /restart HTTP/1.1" 200 -
+2025-03-21 20:55:08,843 - knowledge_graph_builder - INFO - Loading spaCy model...
+2025-03-21 20:55:09,534 - knowledge_graph_builder - INFO - Using en_core_web_lg model
+2025-03-21 20:55:09,535 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: mps
+2025-03-21 20:55:09,535 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-03-21 20:55:09,539 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): huggingface.co:443
+2025-03-21 20:55:09,788 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/modules.json HTTP/1.1" 200 0
+2025-03-21 20:55:10,007 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/config_sentence_transformers.json HTTP/1.1" 200 0
+2025-03-21 20:55:10,214 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/README.md HTTP/1.1" 200 0
+2025-03-21 20:55:10,427 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/modules.json HTTP/1.1" 200 0
+2025-03-21 20:55:10,639 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/sentence_bert_config.json HTTP/1.1" 200 0
+2025-03-21 20:55:10,872 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/adapter_config.json HTTP/1.1" 404 0
+2025-03-21 20:55:11,125 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json HTTP/1.1" 200 0
+2025-03-21 20:55:11,643 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "HEAD /sentence-transformers/all-MiniLM-L6-v2/resolve/main/tokenizer_config.json HTTP/1.1" 200 0
+2025-03-21 20:55:12,170 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/sentence-transformers/all-MiniLM-L6-v2/revision/main HTTP/1.1" 200 6729
+2025-03-21 20:55:12,416 - urllib3.connectionpool - DEBUG - https://huggingface.co:443 "GET /api/models/sentence-transformers/all-MiniLM-L6-v2 HTTP/1.1" 200 6729
+2025-03-21 20:55:12,611 - __main__ - INFO - Starting application server on port 8080
+2025-03-21 20:55:12,611 - __main__ - INFO - Python version: 3.10.16
+2025-03-21 20:55:12,634 - __main__ - INFO - Platform: macOS-14.7.1-arm64-arm-64bit
+2025-03-21 20:55:12,634 - __main__ - INFO - Working directory: /Users/i0c00cu/Documents/KAG/knowledgeGraph
+2025-03-21 20:55:12,646 - werkzeug - WARNING -  * Debugger is active!
+2025-03-21 20:55:12,660 - werkzeug - INFO -  * Debugger PIN: 222-989-458
+2025-03-21 20:55:18,440 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:18] "GET / HTTP/1.1" 200 -
+2025-03-21 20:55:18,487 - __main__ - DEBUG - Graph stats: {'nodes': 0, 'edges': 0, 'topics': 0, 'concepts': 0, 'edge_types': {}, 'last_modified': '2025-03-21T20:55:18.487862'}
+2025-03-21 20:55:18,487 - __main__ - DEBUG - Found JSON files: ['SAP_SD_business_process_and_configuration_documents.json', 'SAP_SD_enterprise_structure.json']
+2025-03-21 20:55:18,488 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:18] "GET /graph/stats HTTP/1.1" 200 -
+2025-03-21 20:55:18,488 - __main__ - DEBUG - Reading file: processed_files/SAP_SD_business_process_and_configuration_documents.json
+2025-03-21 20:55:18,493 - __main__ - DEBUG - Successfully processed SAP_SD_business_process_and_configuration_documents.json
+2025-03-21 20:55:18,496 - __main__ - DEBUG - Reading file: processed_files/SAP_SD_enterprise_structure.json
+2025-03-21 20:55:18,499 - __main__ - DEBUG - Successfully processed SAP_SD_enterprise_structure.json
+2025-03-21 20:55:18,499 - __main__ - DEBUG - Returning files_data: [{'filename': 'SAP_SD_business_process_and_configuration_documents.txt', 'file_type': '.txt', 'json_path': 'SAP_SD_business_process_and_configuration_documents.json', 'timestamp': '2025-03-21T19:10:16.854904', 'is_valid': True}, {'filename': 'SAP_SD_enterprise_structure.txt', 'file_type': '.txt', 'json_path': 'SAP_SD_enterprise_structure.json', 'timestamp': '2025-03-21T19:23:12.111885', 'is_valid': True}]
+2025-03-21 20:55:18,499 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:18] "GET /files HTTP/1.1" 200 -
+2025-03-21 20:55:20,609 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:20] "GET /chat HTTP/1.1" 200 -
+2025-03-21 20:55:20,700 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:20] "POST /chat/session HTTP/1.1" 200 -
+2025-03-21 20:55:23,215 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): router.huggingface.co:443
+2025-03-21 20:55:23,942 - urllib3.connectionpool - DEBUG - https://router.huggingface.co:443 "POST /hf-inference/models/mistralai/Mistral-Nemo-Instruct-2407/v1/chat/completions HTTP/1.1" 200 None
+2025-03-21 20:55:24,106 - werkzeug - INFO - 127.0.0.1 - - [21/Mar/2025 20:55:24] "POST /chat/message HTTP/1.1" 200 -

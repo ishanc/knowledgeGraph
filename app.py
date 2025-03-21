@@ -1,11 +1,17 @@
+import os
+import sys
+import time
+import signal
+import threading
+import platform
+import psutil
+from datetime import datetime, timedelta
+import logging
 from flask import Flask, request, render_template, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
-import os
 from dotenv import load_dotenv
 from knowledgeGraph import process_file
 import json
-from datetime import datetime
-import logging
 from json_validator import validate_json_file, fix_json_content
 from knowledge_graph_builder import KnowledgeGraphBuilder
 from chat import ChatManager  # Updated import
@@ -18,7 +24,14 @@ from llm_utils import retry_llm_call, FORMAT_INSTRUCTIONS, EXAMPLE_RESPONSE
 load_dotenv()
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('app.log')
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # Configure tokenizers parallelism
@@ -114,6 +127,60 @@ kg_builder = KnowledgeGraphBuilder(
 
 # Initialize chat manager with knowledge graph
 chat_manager = ChatManager(kg_builder)
+
+# Add production management related variables
+HEALTH_CHECK_FILE = '.health_status'
+SERVER_START_TIME = datetime.now()
+
+# Track active requests for graceful shutdown
+active_requests = 0
+active_requests_lock = threading.Lock()
+terminating = False
+
+# Request tracking middleware
+@app.before_request
+def before_request():
+    global active_requests
+    if terminating:
+        # If shutting down, don't accept new requests
+        return jsonify({'error': 'Server is shutting down'}), 503
+    
+    with active_requests_lock:
+        active_requests += 1
+
+@app.teardown_request
+def teardown_request(exception=None):
+    global active_requests
+    with active_requests_lock:
+        active_requests -= 1
+
+# Signal handler for graceful shutdown
+def shutdown_handler(signum, frame):
+    global terminating
+    terminating = True
+    
+    logger.info("Shutdown signal received. Starting graceful shutdown...")
+    logger.info(f"Waiting for {active_requests} active requests to complete...")
+    
+    # Set health check to unhealthy
+    with open(HEALTH_CHECK_FILE, 'w') as f:
+        f.write('UNHEALTHY')
+    
+    # Wait for active requests to finish (with timeout)
+    shutdown_start = time.time()
+    while active_requests > 0 and time.time() - shutdown_start < 30:  # 30 second timeout
+        time.sleep(0.1)
+    
+    logger.info("Graceful shutdown completed")
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, shutdown_handler)
+signal.signal(signal.SIGINT, shutdown_handler)
+
+# Create health check file on startup
+with open(HEALTH_CHECK_FILE, 'w') as f:
+    f.write('HEALTHY')
 
 @app.route('/')
 def index():
@@ -580,5 +647,162 @@ def huggingface_prompt():
         "example_response": EXAMPLE_RESPONSE
     })
 
+@app.route('/restart', methods=['POST'])
+def restart_server():
+    """
+    Restart the Flask server and return stats.
+    
+    For production use, this endpoint can be configured to:
+    1. Signal a process manager (systemd, supervisor, etc.) to restart the service
+    2. Or perform a graceful in-process restart if running standalone
+    """
+    try:
+        # Collect stats before restart
+        stats = {
+            'timestamp': datetime.now().isoformat(),
+            'uptime': str(datetime.now() - SERVER_START_TIME),
+            'uptime_seconds': (datetime.now() - SERVER_START_TIME).total_seconds(),
+            'nodes': len(list(kg_builder.nx_graph.nodes())) if hasattr(kg_builder, 'nx_graph') else 0,
+            'edges': len(list(kg_builder.nx_graph.edges())) if hasattr(kg_builder, 'nx_graph') else 0,
+            'processed_files': len(os.listdir(OUTPUT_FOLDER)) if os.path.exists(OUTPUT_FOLDER) else 0,
+            'active_requests': active_requests
+        }
+        
+        # Write health check as unhealthy to prevent new traffic
+        with open(HEALTH_CHECK_FILE, 'w') as f:
+            f.write('RESTARTING')
+        
+        # Check if we're running in a production environment with a process manager
+        # You can customize this check for your deployment environment
+        if os.environ.get('USE_PROCESS_MANAGER') == 'true':
+            # Signal process manager to restart the service
+            # This is a safer approach for production
+            
+            # This example uses touch to modify a file that a process manager 
+            # like supervisor can watch for changes
+            restart_trigger_file = os.environ.get('RESTART_TRIGGER_FILE', '.restart_trigger')
+            with open(restart_trigger_file, 'w') as f:
+                f.write(datetime.now().isoformat())
+            
+            return jsonify({
+                'status': 'success', 
+                'message': 'Restart signal sent to process manager', 
+                'stats': stats,
+                'restart_mode': 'process_manager'
+            })
+        else:
+            # Development mode in-process restart
+            # Set environment variable for clean restart
+            os.environ['WERKZEUG_RUN_MAIN'] = 'true'
+            
+            # Schedule a restart after responding to the client
+            def restart():
+                # Wait for active requests to finish (max 5 seconds)
+                wait_start = time.time()
+                while active_requests > 1 and time.time() - wait_start < 5:  # >1 because this request is active
+                    time.sleep(0.1)
+                
+                # Perform restart
+                time.sleep(1)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
+            
+            # Start the restart process in a separate thread
+            restart_thread = threading.Thread(target=restart)
+            restart_thread.daemon = True
+            restart_thread.start()
+            
+            # Return success with stats
+            return jsonify({
+                'status': 'success', 
+                'message': 'Server restarting', 
+                'stats': stats,
+                'restart_mode': 'in_process'
+            })
+    except Exception as e:
+        logger.error(f"Error restarting server: {str(e)}")
+        return jsonify({
+            'status': 'error', 
+            'message': str(e)
+        }), 500
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for monitoring and load balancers."""
+    try:
+        # Check if kg_builder is functional
+        if not hasattr(kg_builder, 'nx_graph'):
+            return jsonify({
+                'status': 'warning',
+                'message': 'Knowledge graph not initialized'
+            }), 200  # Return 200 with warning status
+        
+        # Perform basic DB/file system check
+        if not os.path.exists(OUTPUT_FOLDER):
+            return jsonify({
+                'status': 'warning',
+                'message': 'Output folder not found'
+            }), 200
+        
+        # All checks passed
+        return jsonify({
+            'status': 'healthy',
+            'message': 'Service is healthy',
+            'timestamp': datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'message': str(e)
+        }), 503  # Service Unavailable
+
+@app.route('/status')
+def system_status():
+    """System status endpoint with detailed metrics for monitoring."""
+    uptime = datetime.now() - SERVER_START_TIME
+    
+    # Get system metrics
+    process = psutil.Process(os.getpid())
+    
+    try:
+        status = {
+            'server': {
+                'start_time': SERVER_START_TIME.isoformat(),
+                'uptime': str(uptime),
+                'uptime_seconds': uptime.total_seconds(),
+                'environment': os.environ.get('FLASK_ENV', 'production'),
+                'python_version': platform.python_version(),
+                'platform': platform.platform()
+            },
+            'process': {
+                'cpu_percent': process.cpu_percent(),
+                'memory_usage_mb': process.memory_info().rss / (1024 * 1024),
+                'thread_count': process.num_threads(),
+                'active_requests': active_requests
+            },
+            'graph': {
+                'nodes': len(list(kg_builder.nx_graph.nodes())) if hasattr(kg_builder, 'nx_graph') else 0,
+                'edges': len(list(kg_builder.nx_graph.edges())) if hasattr(kg_builder, 'nx_graph') else 0
+            },
+            'storage': {
+                'processed_files': len(os.listdir(OUTPUT_FOLDER)) if os.path.exists(OUTPUT_FOLDER) else 0
+            }
+        }
+        
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Error getting system status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Add server start time tracking
+if not os.getenv('SERVER_START_TIME'):
+    os.environ['SERVER_START_TIME'] = datetime.now().isoformat()
+
 if __name__ == '__main__':
+    # Add startup message with environment info
+    logger.info(f"Starting application server on port 8080")
+    logger.info(f"Python version: {platform.python_version()}")
+    logger.info(f"Platform: {platform.platform()}")
+    logger.info(f"Working directory: {os.getcwd()}")
+    
     app.run(host='0.0.0.0', port=8080, debug=True)
