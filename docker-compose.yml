@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  knowledge-graph:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./uploads:/app/uploads:rw
+      - ./processed_files:/app/processed_files:rw
+      - ./static:/app/static:rw
+      - ./templates:/app/templates:ro
+      - transformer-cache:/home/appuser/.cache/torch/sentence_transformers:rw
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+      - FLASK_DEBUG=0
+      - TRANSFORMERS_CACHE=/home/appuser/.cache/torch/sentence_transformers
+    env_file:
+      - .env
+    user: "${UID:-1000}:${GID:-1000}"
+    restart: unless-stopped
+
+volumes:
+  transformer-cache:

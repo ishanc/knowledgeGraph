@@ -84,6 +84,11 @@ app = Flask(__name__,
     static_folder='static'
 )
 
+# Add CORS and security settings
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['CORS_HEADERS'] = 'Content-Type'
+
 # Configure upload folder
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
@@ -112,14 +117,21 @@ chat_manager = ChatManager(kg_builder)
 
 @app.route('/')
 def index():
+    print("Home route accessed!")  # Add debug print
     try:
         return render_template('index.html')
     except Exception as e:
         logger.error(f"Error rendering template: {str(e)}")
-        return f"""Error loading template. Please ensure:
-        1. The templates directory exists at {TEMPLATE_DIR}
-        2. index.html is present in the templates directory
-        Error: {str(e)}"""
+        # Return a basic HTML response if template fails
+        return """
+        <html>
+            <head><title>Knowledge Graph</title></head>
+            <body>
+                <h1>Welcome to the Knowledge Graph!</h1>
+                <p><a href="/graph/editor">Go to Graph Editor</a></p>
+            </body>
+        </html>
+        """
 
 @app.route('/upload', methods=['POST'])
 def upload_files():
@@ -569,4 +581,4 @@ def huggingface_prompt():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=8080, debug=True)
